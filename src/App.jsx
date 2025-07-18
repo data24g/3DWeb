@@ -13,8 +13,8 @@ function App() {
       <Canvas camera={{ position: [0, 2, 8], fov: 45 }}>
 
         {/* Logic hiển thị trang 3D */}
-        {page === 1 && <Experience />}
-        {page === 2 && <PageTwo />}
+        {page === 1 && <Experience setPage={setPage} />}
+        {page === 2 && <PageTwo setPage={setPage} />}
 
         {/* Hiệu ứng phát sáng */}
         <EffectComposer>
@@ -26,19 +26,7 @@ function App() {
         </EffectComposer>
       </Canvas>
 
-      {/* Giao diện nút bấm HTML */}
-      <div className="ui-container">
-        {page === 1 && (
-          <button className="custom-button" onClick={() => setPage(2)}>
-            <span>Go to Page 2</span>
-          </button>
-        )}
-        {page === 2 && (
-          <button className="custom-button" onClick={() => setPage(1)}>
-            <span>Back to Page 1</span>
-          </button>
-        )}
-      </div>
+      {/* Giao diện nút bấm HTML đã được loại bỏ */}
     </>
   );
 }
