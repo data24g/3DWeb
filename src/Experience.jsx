@@ -2,7 +2,7 @@ import { useRef, useEffect } from 'react';
 import { Text, Billboard, Float, Stars, Sparkles, OrbitControls } from '@react-three/drei';
 import { CustomButton } from './CustomButton';
 
-export default function Experience({ setPage }) { // Nhận setPage từ props
+export default function Experience({ setPage }) {
     const sceneRef = useRef();
 
     // Xử lý sự kiện mất WebGL context
@@ -20,10 +20,6 @@ export default function Experience({ setPage }) { // Nhận setPage từ props
         };
     }, []);
 
-    // Không cần hàm handleButtonClick riêng nữa
-    // const handleButtonClick = () => {
-    //     alert("3D Button Clicked!");
-    // };
 
     return (
         <group ref={sceneRef}>
@@ -80,8 +76,8 @@ export default function Experience({ setPage }) { // Nhận setPage từ props
             <CustomButton
                 position={[2.5, -0.5, 2]}
                 text="START"
-                // Gán trực tiếp hành động chuyển trang vào đây
-                onClick={() => setPage(2)}
+                // Sửa thành điều hướng đến trang 3
+                onClick={() => setPage(3)}
             />
 
             <group position={[3.5, -0.5, 2]}>
@@ -102,4 +98,4 @@ export default function Experience({ setPage }) { // Nhận setPage từ props
             </group>
         </group>
     );
-}   
+}

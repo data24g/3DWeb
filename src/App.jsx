@@ -2,8 +2,9 @@ import { Canvas } from '@react-three/fiber';
 import Experience from './Experience';
 import { useState } from 'react';
 import { PageTwo } from './PageTwo';
+import { TeamPage } from './TeamPage'; // Import trang mới
 import { EffectComposer, Bloom } from '@react-three/postprocessing';
-import './Button.css'; // Import file CSS mới
+import './Button.css';
 
 function App() {
   const [page, setPage] = useState(1);
@@ -15,6 +16,7 @@ function App() {
         {/* Logic hiển thị trang 3D */}
         {page === 1 && <Experience setPage={setPage} />}
         {page === 2 && <PageTwo setPage={setPage} />}
+        {page === 3 && <TeamPage setPage={setPage} />} {/* Thêm logic cho trang 3 */}
 
         {/* Hiệu ứng phát sáng */}
         <EffectComposer>
@@ -25,8 +27,6 @@ function App() {
           />
         </EffectComposer>
       </Canvas>
-
-      {/* Giao diện nút bấm HTML đã được loại bỏ */}
     </>
   );
 }
