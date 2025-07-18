@@ -7,7 +7,7 @@ import { EffectComposer, Bloom } from '@react-three/postprocessing';
 import './Button.css';
 
 function App() {
-  const [page, setPage] = useState(1);
+  const [page, setPage] = useState(2); // đoạn code để chọn trang khởi tạo khi mở web 
 
   return (
     <>
