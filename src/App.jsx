@@ -10,7 +10,7 @@ function App() {
 
   return (
     <>
-      <Canvas camera={{ position: [0, 2, 6], fov: 45 }}>
+      <Canvas camera={{ position: [0, 2, 8], fov: 45 }}>
 
         {/* Logic hiển thị trang 3D */}
         {page === 1 && <Experience />}

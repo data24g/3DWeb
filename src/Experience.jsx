@@ -1,33 +1,46 @@
+import { useRef, useEffect } from 'react';
 import { Text, Billboard, Float, Stars, Sparkles, OrbitControls } from '@react-three/drei';
-import { CustomButton } from './CustomButton'; // Import nút tùy chỉnh
+import { CustomButton } from './CustomButton';
 
 export default function Experience() {
-    // Hàm xử lý khi nhấp vào nút
+    const sceneRef = useRef();
+
+    // Xử lý sự kiện mất WebGL context
+    useEffect(() => {
+        const handleContextLost = (event) => {
+            event.preventDefault();
+            console.warn('WebGL context lost. Attempting to recover...');
+        };
+
+        const canvas = document.querySelector('canvas');
+        canvas.addEventListener('webglcontextlost', handleContextLost);
+
+        return () => {
+            canvas.removeEventListener('webglcontextlost', handleContextLost);
+        };
+    }, []);
+
     const handleButtonClick = () => {
-        alert("Button Clicked!");
-        // Bạn có thể thay thế alert bằng logic chuyển trang nếu muốn
+        alert("3D Button Clicked!");
     };
 
     return (
-        <>
-            {/* THÊM ORBITCONTROLS ĐỂ KIỂM SOÁT CAMERA VÀ ZOOM */}
+        <group ref={sceneRef}>
             <OrbitControls
                 makeDefault
-                enableZoom={true} // Bật/tắt chức năng zoom
-                minDistance={2}   // Khoảng cách zoom vào gần nhất
-                maxDistance={10}  // Khoảng cách zoom ra xa nhất
-                maxPolarAngle={Math.PI / 1.8} // Giới hạn góc xoay dọc để không nhìn xuống dưới quá xa
+                enableZoom={true}
+                minDistance={2}
+                maxDistance={15}
+                maxPolarAngle={Math.PI / 1.8}
+                target={[0, 0.5, 0]}
             />
 
-            {/* HIỆU ỨNG VŨ TRỤ */}
-            <Stars radius={100} depth={50} count={5000} factor={4} saturation={0} fade speed={1} />
-            <Sparkles count={100} scale={10} size={2} speed={0.4} />
+            <Stars radius={50} depth={30} count={2000} factor={3} fade speed={0.5} />
+            <Sparkles count={50} scale={5} size={1} speed={0.2} />
 
-            {/* CÁC NGUỒN SÁNG */}
             <ambientLight intensity={0.5} />
             <directionalLight position={[1, 2, 3]} intensity={1.5} />
 
-            {/* CHỮ "TRÌNH" */}
             <Billboard>
                 <Float speed={1.5} rotationIntensity={1.5} floatIntensity={0.5}>
                     <Text
@@ -49,21 +62,42 @@ export default function Experience() {
                 </Float>
             </Billboard>
 
-            {/* CHỮ "WELCOME" */}
             <Billboard>
                 <Float speed={2} rotationIntensity={0.5} floatIntensity={0.2}>
-                    <Text position={[0, 2.5, 0]} fontSize={0.5} color="white" anchorX="center" anchorY="middle">
+                    <Text
+                        position={[0, 2.5, 0]}
+                        fontSize={0.5}
+                        color="white"
+                        anchorX="center"
+                        anchorY="middle"
+                    >
                         WELCOME TO MY SITE!
                     </Text>
                 </Float>
             </Billboard>
 
-            {/* NÚT 3D MỚI ĐÃ ĐƯỢC THÊM VÀO */}
             <CustomButton
-                position={[0, -0.75, 3]}
+                position={[2.5, -0.5, 2]}
                 text="START"
                 onClick={handleButtonClick}
             />
-        </>
+
+            <group position={[3.5, -0.5, 2]}>
+                <Float speed={4} rotationIntensity={0.1} floatIntensity={0.2}>
+                    <Billboard>
+                        <Text
+                            position={[0, 0.8, 0]}
+                            fontSize={0.3}
+                            color="gold"
+                            outlineColor="red"
+                            outlineWidth={0.01}
+                            textAlign="center"
+                        >
+                            Click me!
+                        </Text>
+                    </Billboard>
+                </Float>
+            </group>
+        </group>
     );
 }

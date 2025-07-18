@@ -1,42 +1,49 @@
-#root {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 2rem;
-  text-align: center;
+// src/App.jsx
+
+import { Canvas } from '@react-three/fiber';
+import Experience from './Experience';
+import { useState } from 'react';
+import { PageTwo } from './PageTwo';
+import { EffectComposer, Bloom } from '@react-three/postprocessing';
+import './Button.css';
+
+function App() {
+  const [page, setPage] = useState(1);
+
+  return (
+    <>
+      {/* --- THAY ĐỔI VỊ TRÍ CAMERA --- */}
+      <Canvas camera={{ position: [0, 2, 5], fov: 45 }}>
+
+        {/* Logic hiển thị trang 3D */}
+        {page === 1 && <Experience />}
+        {page === 2 && <PageTwo />}
+
+        {/* Hiệu ứng phát sáng */}
+        <EffectComposer>
+          <Bloom
+            mipmapBlur
+            intensity={1.2}
+            luminanceThreshold={1}
+          />
+        </EffectComposer>
+      </Canvas>
+
+      {/* Giao diện nút bấm HTML */}
+      <div className="ui-container">
+        {page === 1 && (
+          <button className="custom-button" onClick={() => setPage(2)}>
+            <span>Go to Page 2</span>
+          </button>
+        )}
+        {page === 2 && (
+          <button className="custom-button" onClick={() => setPage(1)}>
+            <span>Back to Page 1</span>
+          </button>
+        )}
+      </div>
+    </>
+  );
 }
 
-.logo {
-  height: 6em;
-  padding: 1.5em;
-  will-change: filter;
-  transition: filter 300ms;
-}
-.logo:hover {
-  filter: drop-shadow(0 0 2em #646cffaa);
-}
-.logo.react:hover {
-  filter: drop-shadow(0 0 2em #61dafbaa);
-}
-
-@keyframes logo-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  a:nth-of-type(2) .logo {
-    animation: logo-spin infinite 20s linear;
-  }
-}
-
-.card {
-  padding: 2em;
-}
-
-.read-the-docs {
-  color: #888;
-}
+export default App;
