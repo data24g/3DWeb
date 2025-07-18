@@ -1,4 +1,4 @@
-import { Text, Billboard, PresentationControls, Float, Stars, Sparkles } from '@react-three/drei';
+import { Text, Billboard, Float, Stars, Sparkles, OrbitControls } from '@react-three/drei';
 import { CustomButton } from './CustomButton'; // Import nút tùy chỉnh
 
 export default function Experience() {
@@ -9,14 +9,16 @@ export default function Experience() {
     };
 
     return (
-        <PresentationControls
-            global
-            speed={1.5}
-            zoom={0.8}
-            rotation={[0, 0, 0]}
-            polar={[-0.4, Math.PI / 2]}
-            azimuth={[-1, Math.PI / 4]}
-        >
+        <>
+            {/* THÊM ORBITCONTROLS ĐỂ KIỂM SOÁT CAMERA VÀ ZOOM */}
+            <OrbitControls
+                makeDefault
+                enableZoom={true} // Bật/tắt chức năng zoom
+                minDistance={2}   // Khoảng cách zoom vào gần nhất
+                maxDistance={10}  // Khoảng cách zoom ra xa nhất
+                maxPolarAngle={Math.PI / 1.8} // Giới hạn góc xoay dọc để không nhìn xuống dưới quá xa
+            />
+
             {/* HIỆU ỨNG VŨ TRỤ */}
             <Stars radius={100} depth={50} count={5000} factor={4} saturation={0} fade speed={1} />
             <Sparkles count={100} scale={10} size={2} speed={0.4} />
@@ -62,7 +64,6 @@ export default function Experience() {
                 text="START"
                 onClick={handleButtonClick}
             />
-
-        </PresentationControls>
+        </>
     );
 }
