@@ -1,23 +1,20 @@
 import { useState, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
-import { RoundedBox, Text } from '@react-three/drei';
+import { Sphere, Torus, Text } from '@react-three/drei';
 import * as THREE from 'three';
 
 export function CustomButton({ position, text, onClick }) {
     const [hovered, setHover] = useState(false);
     const groupRef = useRef();
-    const materialRef = useRef();
+    const ringRef = useRef(); // Ref cho đĩa bồi tụ
 
-    useFrame(() => {
-        const targetScale = hovered ? 1.1 : 1;
+    useFrame((state, delta) => {
+        // Hiệu ứng phóng to nhẹ khi hover
+        const targetScale = hovered ? 1.2 : 1;
         groupRef.current.scale.lerp(new THREE.Vector3(targetScale, targetScale, targetScale), 0.1);
 
-        const targetIntensity = hovered ? 1.5 : 0.5;
-        materialRef.current.emissiveIntensity = THREE.MathUtils.lerp(
-            materialRef.current.emissiveIntensity,
-            targetIntensity,
-            0.1
-        );
+        // Đĩa bồi tụ xoay liên tục
+        ringRef.current.rotation.z += delta * 0.7;
     });
 
     return (
@@ -28,27 +25,32 @@ export function CustomButton({ position, text, onClick }) {
             onPointerOut={() => setHover(false)}
             onClick={onClick}
             dispose={null}
+            // Giảm kích thước tổng thể của nút
+            scale={0.7}
         >
-            <RoundedBox args={[2.5, 0.8, 0.2]} radius={0.15}>
+            {/* Lõi đen - một quả cầu đen không phản chiếu ánh sáng */}
+            <Sphere args={[0.6, 32, 32]}>
+                <meshBasicMaterial color="black" />
+            </Sphere>
+
+            {/* Đĩa bồi tụ phát sáng */}
+            <Torus ref={ringRef} args={[0.9, 0.05, 16, 100]} rotation-x={Math.PI * 0.5}>
                 <meshStandardMaterial
-                    ref={materialRef}
-                    color="#2a004f"
-                    emissive="#8a2be2"
-                    emissiveIntensity={0.5}
-                    roughness={0.2}
-                    metalness={0.8}
-                    transparent
-                    opacity={0.8}
+                    color="#ff8c00" // Màu cam nóng
+                    emissive="#ff8c00"
+                    emissiveIntensity={hovered ? 8 : 4} // Sáng rực khi hover
                     toneMapped={false}
                 />
-            </RoundedBox>
+            </Torus>
+
+            {/* Chữ phát sáng ở trung tâm */}
             <Text
-                position={[0, 0, 0.15]}
+                position={[0, 0, 0]}
                 fontSize={0.25}
-                color="white"
                 font="/fonts/Exile-Regular.ttf"
             >
                 {text}
+                <meshBasicMaterial color="white" toneMapped={false} />
             </Text>
         </group>
     );
