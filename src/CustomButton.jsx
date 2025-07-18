@@ -8,13 +8,10 @@ export function CustomButton({ position, text, onClick }) {
     const groupRef = useRef();
     const materialRef = useRef();
 
-    // Sử dụng useFrame để tạo hiệu ứng mượt mà
-    useFrame((state, delta) => {
-        // Hiệu ứng phóng to khi hover
+    useFrame(() => {
         const targetScale = hovered ? 1.1 : 1;
         groupRef.current.scale.lerp(new THREE.Vector3(targetScale, targetScale, targetScale), 0.1);
 
-        // Hiệu ứng phát sáng khi hover
         const targetIntensity = hovered ? 1.5 : 0.5;
         materialRef.current.emissiveIntensity = THREE.MathUtils.lerp(
             materialRef.current.emissiveIntensity,
@@ -30,15 +27,13 @@ export function CustomButton({ position, text, onClick }) {
             onPointerOver={() => setHover(true)}
             onPointerOut={() => setHover(false)}
             onClick={onClick}
-            // Thêm dispose={null} để Drei không báo warning
             dispose={null}
         >
-            {/* Thân nút */}
             <RoundedBox args={[2.5, 0.8, 0.2]} radius={0.15}>
                 <meshStandardMaterial
                     ref={materialRef}
                     color="#2a004f"
-                    emissive="#8a2be2" // Màu tím phát sáng
+                    emissive="#8a2be2"
                     emissiveIntensity={0.5}
                     roughness={0.2}
                     metalness={0.8}
@@ -47,8 +42,6 @@ export function CustomButton({ position, text, onClick }) {
                     toneMapped={false}
                 />
             </RoundedBox>
-
-            {/* Chữ trên nút */}
             <Text
                 position={[0, 0, 0.15]}
                 fontSize={0.25}
