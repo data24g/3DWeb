@@ -2,10 +2,10 @@ import { useRef, useEffect } from 'react';
 import { Text, Billboard, Float, Stars, Sparkles, OrbitControls } from '@react-three/drei';
 import { CustomButton } from './CustomButton';
 
-export default function Experience({ setPage }) {
+// Nhận isMobileView từ App.jsx
+export default function Experience({ setPage, isMobileView }) {
     const sceneRef = useRef();
 
-    // Xử lý sự kiện mất WebGL context
     useEffect(() => {
         const handleContextLost = (event) => {
             event.preventDefault();
@@ -13,13 +13,21 @@ export default function Experience({ setPage }) {
         };
 
         const canvas = document.querySelector('canvas');
-        canvas.addEventListener('webglcontextlost', handleContextLost);
-
-        return () => {
-            canvas.removeEventListener('webglcontextlost', handleContextLost);
-        };
+        if (canvas) { // Thêm kiểm tra để tránh lỗi nếu canvas chưa tồn tại
+            canvas.addEventListener('webglcontextlost', handleContextLost);
+            return () => {
+                canvas.removeEventListener('webglcontextlost', handleContextLost);
+            };
+        }
     }, []);
 
+    // ===== RESPONSIVE LOGIC =====
+    // Định nghĩa vị trí và kích thước dựa trên isMobileView
+    const titleFontSize = isMobileView ? 1.2 : 1.5;
+    const welcomeFontSize = isMobileView ? 0.35 : 0.5;
+    const welcomePosition = isMobileView ? [0, 1.8, 0] : [0, 2.5, 0];
+    const buttonPosition = isMobileView ? [0, -1.2, 0] : [2.5, -0.5, 2];
+    const clickMePosition = isMobileView ? [0, -0.4, 0] : [3.5, -0.5, 2];
 
     return (
         <group ref={sceneRef}>
@@ -42,7 +50,7 @@ export default function Experience({ setPage }) {
                 <Float speed={1.5} rotationIntensity={1.5} floatIntensity={0.5}>
                     <Text
                         font="/fonts/Exile-Regular.ttf"
-                        fontSize={1.5}
+                        fontSize={titleFontSize} // Sử dụng biến responsive
                         position-y={0.5}
                         bevelEnabled
                         bevelSize={0.05}
@@ -62,8 +70,8 @@ export default function Experience({ setPage }) {
             <Billboard>
                 <Float speed={2} rotationIntensity={0.5} floatIntensity={0.2}>
                     <Text
-                        position={[0, 2.5, 0]}
-                        fontSize={0.5}
+                        position={welcomePosition} // Sử dụng biến responsive
+                        fontSize={welcomeFontSize} // Sử dụng biến responsive
                         color="white"
                         anchorX="center"
                         anchorY="middle"
@@ -74,17 +82,16 @@ export default function Experience({ setPage }) {
             </Billboard>
 
             <CustomButton
-                position={[2.5, -0.5, 2]}
+                position={buttonPosition} // Sử dụng biến responsive
                 text="START"
-                // Sửa thành điều hướng đến trang 3
-                onClick={() => setPage(3)}
+                onClick={() => setPage(3)} // Sửa thành điều hướng đến trang 3 (TeamPage)
             />
 
-            <group position={[3.5, -0.5, 2]}>
+            <group position={clickMePosition}> {/* Sử dụng biến responsive */}
                 <Float speed={4} rotationIntensity={0.1} floatIntensity={0.2}>
                     <Billboard>
                         <Text
-                            position={[0, 0.8, 0]}
+                            position-y={0.5}
                             fontSize={0.3}
                             color="gold"
                             outlineColor="red"

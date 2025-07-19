@@ -1,84 +1,149 @@
-import React, { useState, Suspense, useEffect } from 'react';
+import React, { useState, Suspense, useEffect, useLayoutEffect, useRef } from 'react';
 import { Canvas } from '@react-three/fiber';
+import { Joystick } from 'react-joystick-component';
 import Experience from './Experience';
 import { PageTwo } from './PageTwo';
 import { TeamPage } from './TeamPage';
 import { EffectComposer, Bloom } from '@react-three/postprocessing';
+import './responsive.css';
 
-// Component UI được tách riêng để quản lý toàn bộ giao diện 2D
-function UI({ page, activePlanet }) {
+// =============================================================
+// === HOOK TÙY CHỈNH ĐỂ LẤY KÍCH THƯỚC CỬA SỔ TRÌNH DUYỆT ===
+// =============================================================
+function useWindowSize() {
+  const [size, setSize] = useState([window.innerWidth, window.innerHeight]);
+  useLayoutEffect(() => {
+    function handleResize() {
+      setSize([window.innerWidth, window.innerHeight]);
+    }
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+  return { width: size[0], height: size[1] };
+}
+
+
+// Component UI được cập nhật
+function UI({ page, activePlanet, isMobileView, onAccessPlanet }) {
   return (
     <>
-      <style>
-        {`@keyframes pulse { 0% { box-shadow: 0 0 15px 0px #00aaff; } 50% { box-shadow: 0 0 25px 5px #00aaff; } 100% { box-shadow: 0 0 15px 0px #00aaff; } }`}
-      </style>
-
-      {/* Chỉ hiển thị UI dành cho Trang 2 khi đang ở trang đó */}
       {page === 2 && (
         <>
-          <div style={styles.instructions}>
-            <strong>Điều Khiển:</strong><br />
-            W / S - Bay Tới / Lui<br />
-            A / D - Bay Ngang Trái / Phải<br />
-            E / Q - Bay Lên / Xuống<br />
-            Chuột - Nhìn Xung Quanh<br />
-            ENTER - Tương Tác
-          </div>
-          {/* Chỉ render thông báo khi có một hành tinh được kích hoạt */}
-          {activePlanet && <div style={styles.interactionPrompt}>Nhấn ENTER để khám phá {activePlanet.name}</div>}
+          {/* 1. Chỉ hiển thị hướng dẫn trên giao diện Desktop (!isMobileView) */}
+          {!isMobileView && (
+            <div className="instructions-panel">
+              <strong>Điều Khiển:</strong><br />
+              W / S - Bay Tới / Lui<br />
+              A / D - Bay Ngang Trái / Phải<br />
+              E / Q - Bay Lên / Xuống<br />
+              Chuột - Nhìn Xung Quanh
+            </div>
+          )}
+
+          {/* 2. Nút khám phá vẫn hoạt động như cũ */}
+          {activePlanet && (
+            <button className="access-button" onClick={onAccessPlanet}>
+              Khám phá {activePlanet.name}
+            </button>
+          )}
         </>
       )}
     </>
   );
 }
 
+
 function App() {
-  const [page, setPage] = useState(2);
-  // State của hành tinh đang ở gần được "nâng" lên đây
+  const [page, setPage] = useState(1);
   const [activePlanet, setActivePlanet] = useState(null);
 
-  // useEffect để lắng nghe phím Enter được chuyển lên đây
-  // vì nó cần truy cập cả `activePlanet` và `setPage`
+  // 3. Sử dụng hook mới để lấy chiều rộng màn hình
+  const { width } = useWindowSize();
+
+  // 4. Xác định giao diện "mobile" dựa trên chiều rộng, 768px là một ngưỡng phổ biến
+  const isMobileView = width <= 768;
+
+  const joystickRef = useRef({ x: 0, y: 0, direction: null, distance: 0 });
+
+  const handleJoystickMove = (stick) => {
+    joystickRef.current = {
+      x: stick.x || 0,
+      y: stick.y || 0,
+      direction: stick.direction,
+      distance: stick.distance || 0,
+    };
+  };
+
+  const handleJoystickStop = () => {
+    joystickRef.current = { x: 0, y: 0, direction: null, distance: 0 };
+  };
+
+  const accessPlanet = () => {
+    if (activePlanet) {
+      alert(`Đã truy cập vào ${activePlanet.name}!`);
+    }
+  };
+
   useEffect(() => {
     const handleKeyDown = (e) => {
-      // Logic này chỉ chạy khi ở Page 2 và có một hành tinh đang active
       if (page === 2 && e.key.toLowerCase() === 'enter' && activePlanet) {
-        alert(`Đã truy cập vào ${activePlanet.name}!`);
+        accessPlanet();
       }
     };
-
     window.addEventListener('keydown', handleKeyDown);
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [activePlanet, page]); // Listener sẽ được cập nhật khi activePlanet hoặc page thay đổi
+  }, [activePlanet, page]);
 
   return (
     <>
-      {/* Lớp Canvas 3D */}
-      <Canvas camera={{ position: [0, 2, 8], fov: 45 }}>
+      <Canvas
+        camera={{ position: [0, 2, 8], fov: 45 }}
+        dpr={[1, 1.5]}
+      >
         <Suspense fallback={null}>
-          {page === 1 && <Experience setPage={setPage} />}
-          {page === 2 && <PageTwo setActivePlanet={setActivePlanet} setPage={setPage} />}
-          {page === 3 && <TeamPage setPage={setPage} />}
+          {/* Thêm isMobileView vào prop của Experience */}
+          {page === 1 && <Experience setPage={setPage} isMobileView={isMobileView} />}
+
+          {page === 2 && <PageTwo setActivePlanet={setActivePlanet} setPage={setPage} joystickRef={joystickRef} />}
+
+          {/* Thêm isMobileView vào prop của TeamPage */}
+          {page === 3 && <TeamPage setPage={setPage} isMobileView={isMobileView} />}
         </Suspense>
 
-        {/* Các hiệu ứng chung */}
         <EffectComposer>
           <Bloom mipmapBlur intensity={1.2} luminanceThreshold={1} />
         </EffectComposer>
       </Canvas>
 
-      {/* Lớp UI 2D, nằm bên ngoài và render bên trên Canvas */}
-      <UI page={page} activePlanet={activePlanet} />
+      {/* 5. Chỉ hiển thị Joystick nếu là GIAO DIỆN mobile VÀ đang ở trang 2 */}
+      {isMobileView && page === 2 && (
+        <div style={{
+          position: 'absolute',
+          bottom: '50px',
+          left: '50px',
+          zIndex: 110,
+        }}>
+          <Joystick
+            size={100}
+            baseColor="rgba(255, 255, 255, 0.2)"
+            stickColor="rgba(255, 255, 255, 0.5)"
+            move={handleJoystickMove}
+            stop={handleJoystickStop}
+          />
+        </div>
+      )}
+
+      {/* 6. Truyền isMobileView thay cho isTouchDevice */}
+      <UI
+        page={page}
+        activePlanet={activePlanet}
+        isMobileView={isMobileView}
+        onAccessPlanet={accessPlanet}
+      />
     </>
   );
 }
-
-// Các style cho UI
-const styles = {
-  interactionPrompt: { position: 'absolute', bottom: '5%', left: '50%', transform: 'translateX(-50%)', padding: '15px 30px', backgroundColor: 'rgba(10, 20, 40, 0.8)', backdropFilter: 'blur(10px)', color: '#00aaff', borderRadius: '50px', border: '2px solid #00aaff', fontFamily: 'sans-serif', fontSize: '20px', fontWeight: 'bold', textAlign: 'center', zIndex: 100, pointerEvents: 'none', textTransform: 'uppercase', letterSpacing: '1px', animation: 'pulse 2s infinite', },
-  instructions: { position: 'absolute', top: '20px', left: '20px', padding: '15px 20px', width: '280px', backgroundColor: 'rgba(10, 20, 40, 0.7)', backdropFilter: 'blur(10px)', color: 'white', borderRadius: '12px', border: '1px solid rgba(0, 170, 255, 0.5)', boxShadow: '0 0 15px rgba(0, 170, 255, 0.3)', fontFamily: 'sans-serif', fontSize: '15px', zIndex: 100, pointerEvents: 'none', lineHeight: '1.7', textShadow: '0 0 5px rgba(255, 255, 255, 0.5)', }
-};
 
 export default App;

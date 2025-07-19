@@ -3,40 +3,62 @@ import { useFrame } from '@react-three/fiber';
 import { Text, Billboard, Float } from '@react-three/drei';
 import * as THREE from 'three';
 
-// Tạo một vector tạm để không phải tạo mới trong mỗi frame (tối ưu hiệu suất)
 const tempVector = new THREE.Vector3();
 
 export function MemberName({ position, name }) {
     const groupRef = useRef();
 
     useFrame((state) => {
-        // Lấy vị trí của đối tượng trong thế giới 3D
+        if (!groupRef.current) return;
         const worldPosition = groupRef.current.getWorldPosition(tempVector);
-
-        // Tính khoảng cách từ camera đến đối tượng
         const distance = state.camera.position.distanceTo(worldPosition);
-
-        // Đặt một hệ số để điều chỉnh kích thước cuối cùng trên màn hình
         const screenSpaceFactor = 0.05;
-
-        // Tính toán tỷ lệ mới: xa hơn thì scale lớn hơn
         const scale = distance * screenSpaceFactor;
-
-        // Áp dụng tỷ lệ cho group, làm cho kích thước của nó không đổi trên màn hình
         groupRef.current.scale.set(scale, scale, scale);
     });
 
     return (
         <Float speed={2} floatIntensity={0.1}>
             <Billboard ref={groupRef} position={position}>
+                {/* 
+                  Chúng ta sẽ tạo 2 lớp Text chồng lên nhau:
+                  1. Lớp viền (lớn hơn một chút) ở phía sau.
+                  2. Lớp chữ chính ở phía trước.
+                  Điều này tạo ra hiệu ứng viền thủ công tốt hơn là chỉ dùng outline.
+                */}
+
+                {/* Lớp Viền phát sáng - ở phía sau (z = -0.01) */}
                 <Text
-                    fontSize={0.7}
-                    color="#7fffd4" // Màu xanh ngọc (Aquamarine)
-                    outlineColor="black"
-                    outlineWidth={0.02}
+                    fontSize={0.7} // Kích thước bằng chữ chính
+                    color="#9400D3" // Màu viền: Tím đậm (Dark Violet)
+                    anchorX="center"
+                    anchorY="middle"
+                    position-z={-0.01} // Đẩy ra sau một chút
                 >
                     {name}
+                    {/* Viền chỉ cần một vật liệu cơ bản phát sáng nhẹ */}
+                    <meshBasicMaterial
+                        color="#9400D3"
+                        toneMapped={false}
+                    />
                 </Text>
+
+                {/* Lớp Chữ Chính - ở phía trước */}
+                <Text
+                    fontSize={0.7}
+                    color="#00FFFF" // Màu chữ chính: Xanh lơ (Cyan)
+                    anchorX="center"
+                    anchorY="middle"
+                >
+                    {name}
+                    <meshStandardMaterial
+                        color="#00FFFF"
+                        emissive="#00FFFF" // Tự phát sáng cùng màu
+                        emissiveIntensity={2.5} // Tăng cường độ sáng
+                        toneMapped={false} // Bỏ qua tone-mapping để màu rực rỡ hơn
+                    />
+                </Text>
+
             </Billboard>
         </Float>
     );
