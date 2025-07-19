@@ -37,7 +37,7 @@ export default function Experience({ setPage }) {
             <Billboard>
                 <Float speed={1.5} rotationIntensity={1.5} floatIntensity={0.5}>
                     <Text
-                        font="/fonts/Exile-Regular.json"
+                        font="/fonts/Exile-Regular.ttf"
                         fontSize={1.5}
                         position-y={0.5}
                         bevelEnabled
