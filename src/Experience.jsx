@@ -37,7 +37,7 @@ export default function Experience({ setPage }) {
             <Billboard>
                 <Float speed={1.5} rotationIntensity={1.5} floatIntensity={0.5}>
                     <Text
-                        font="/fonts/Exile-Regular.ttf"
+                        font="/fonts/Exile-Regular.json"
                         fontSize={1.5}
                         position-y={0.5}
                         bevelEnabled
@@ -77,7 +77,7 @@ export default function Experience({ setPage }) {
                 text="START"
                 // Trước đây, nó chuyển đến trang 3
                 // onClick={() => setPage(3)}
-                
+
                 // Bây giờ, hãy đổi thành số 2 để chuyển đến Hệ Mặt Trời
                 onClick={() => setPage(2)}
             />

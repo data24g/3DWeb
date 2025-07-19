@@ -47,7 +47,7 @@ export function CustomButton({ position, text, onClick }) {
             <Text
                 position={[0, 0, 0]}
                 fontSize={0.25}
-                font="/fonts/Exile-Regular.ttf"
+                font="/fonts/Exile-Regular.json"
             >
                 {text}
                 <meshBasicMaterial color="white" toneMapped={false} />
