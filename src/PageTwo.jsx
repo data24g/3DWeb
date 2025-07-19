@@ -1,45 +1,63 @@
 import React, { useRef, useEffect, useState, Suspense } from 'react';
 import { useFrame } from '@react-three/fiber';
-import { Sphere, Stars, OrbitControls, SpotLight, Torus, Billboard, Text, Html } from '@react-three/drei';
+import { Sphere, Stars, OrbitControls, SpotLight, Torus, Billboard, Text, Html, Cone } from '@react-three/drei';
 import * as THREE from 'three';
-import HiModel from './Hi';
+import { Model as SpaceshipModel } from './Spaceship';
 
-// --- Các component con (OrbitLine, PlanetLabel, Planet) giữ nguyên ---
+// --- Các component con (OrbitLine, PlanetLabel, Planet, PlayerController) giữ nguyên ---
 function OrbitLine({ distance }) { return <Torus args={[distance, 0.02, 2, 128]} rotation-x={Math.PI / 2}><meshBasicMaterial color="#ffffff" transparent opacity={0.35} /></Torus>; }
 const tempVector = new THREE.Vector3();
 function PlanetLabel({ name }) { const textRef = useRef(); useFrame(state => { const parentPosition = textRef.current.parent.getWorldPosition(tempVector); const distance = parentPosition.distanceTo(state.camera.position); textRef.current.scale.set(distance * 0.05, distance * 0.05, distance * 0.05); }); return <Billboard position-y={1.2}><Text ref={textRef} fontSize={1} color="white" outlineColor="black" outlineWidth={0.05}>{name}</Text></Billboard>; }
 const Planet = React.forwardRef(({ data, ...props }, ref) => { const { name, distance, speed, size, color, ring, initialAngleOffset } = data; useFrame(({ clock }) => { if (ref.current) { const t = (clock.getElapsedTime() * speed) + initialAngleOffset; ref.current.position.x = distance * Math.cos(t); ref.current.position.z = distance * Math.sin(t); } }); return (<group ref={ref} {...props}><Sphere args={[size, 32, 32]}><meshStandardMaterial color={color} /></Sphere>{ring && (<Torus args={[ring.innerRadius, ring.outerRadius - ring.innerRadius, 2, 64]} rotation={ring.rotation || [Math.PI / 2, 0, 0]}><meshStandardMaterial color={ring.color} side={THREE.DoubleSide} /></Torus>)}<PlanetLabel name={name} /></group>); });
 Planet.displayName = 'Planet';
-
-
-// --- Logic điều khiển (PlayerController) đã hoạt động đúng, không cần thay đổi ---
-const PlayerController = React.forwardRef(({ keys, children, ...props }, ref) => {
-    const speed = 25; const moveDirection = new THREE.Vector3(); const forwardVector = new THREE.Vector3(); const sideVector = new THREE.Vector3(); const targetQuaternion = new THREE.Quaternion();
-    useFrame((state, delta) => {
-        const player = ref.current; if (!player) return;
-        state.camera.getWorldDirection(forwardVector); forwardVector.y = 0; forwardVector.normalize();
-        sideVector.copy(forwardVector).cross(new THREE.Vector3(0, 1, 0));
-        let horizontalMovement = (keys.current.right ? 1 : 0) - (keys.current.left ? 1 : 0);
-        let verticalMovement = (keys.current.forward ? 1 : 0) - (keys.current.backward ? 1 : 0);
-        moveDirection.x = 0; moveDirection.y = 0; moveDirection.z = 0;
-        moveDirection.add(forwardVector.clone().multiplyScalar(verticalMovement));
-        moveDirection.add(sideVector.clone().multiplyScalar(horizontalMovement));
-        if (moveDirection.lengthSq() > 0) {
-            moveDirection.normalize();
-            const targetAngle = Math.atan2(moveDirection.x, moveDirection.z);
-            targetQuaternion.setFromAxisAngle(new THREE.Vector3(0, 1, 0), targetAngle);
-            player.quaternion.slerp(targetQuaternion, delta * 10);
-        }
-        player.position.add(moveDirection.multiplyScalar(delta * speed));
-        if (keys.current.up) player.position.y += delta * (speed / 2);
-        if (keys.current.down) player.position.y -= delta * (speed / 2);
-    });
-    return <group ref={ref} {...props}>{children}</group>;
-});
+const PlayerController = React.forwardRef(({ keys, children, ...props }, ref) => { const speed = 25; const moveDirection = new THREE.Vector3(); const forwardVector = new THREE.Vector3(); const sideVector = new THREE.Vector3(); const targetQuaternion = new THREE.Quaternion(); useFrame((state, delta) => { const player = ref.current; if (!player) return; state.camera.getWorldDirection(forwardVector); forwardVector.y = 0; forwardVector.normalize(); sideVector.copy(forwardVector).cross(new THREE.Vector3(0, 1, 0)); let horizontalMovement = (keys.current.right ? 1 : 0) - (keys.current.left ? 1 : 0); let verticalMovement = (keys.current.forward ? 1 : 0) - (keys.current.backward ? 1 : 0); moveDirection.x = 0; moveDirection.y = 0; moveDirection.z = 0; moveDirection.add(forwardVector.clone().multiplyScalar(verticalMovement)); moveDirection.add(sideVector.clone().multiplyScalar(horizontalMovement)); if (moveDirection.lengthSq() > 0) { moveDirection.normalize(); const targetAngle = Math.atan2(moveDirection.x, moveDirection.z); targetQuaternion.setFromAxisAngle(new THREE.Vector3(0, 1, 0), targetAngle); player.quaternion.slerp(targetQuaternion, delta * 10); } player.position.add(moveDirection.multiplyScalar(delta * speed)); if (keys.current.up) player.position.y += delta * (speed / 2); if (keys.current.down) player.position.y -= delta * (speed / 2); }); return <group ref={ref} {...props}>{children}</group>; });
 PlayerController.displayName = 'PlayerController';
 
+// =======================================================================
+// === COMPONENT MỚI CHO VỆT SÁNG ĐỘNG CƠ ===
+// =======================================================================
+function Thruster({ keys }) {
+    const thrusterRef = useRef();
+
+    useFrame((state, delta) => {
+        const thruster = thrusterRef.current;
+        if (!thruster) return;
+
+        // Chỉ hiển thị và hoạt động khi nhấn phím W
+        if (keys.current.forward) {
+            thruster.visible = true;
+
+            // Tạo hiệu ứng nhấp nháy, phun lửa
+            const time = state.clock.getElapsedTime();
+            // Chiều dài của vệt sáng sẽ thay đổi liên tục
+            thruster.scale.z = 1 + Math.sin(time * 50) * 0.4;
+            // Độ mờ cũng thay đổi theo
+            thruster.material.opacity = 0.6 + Math.sin(time * 50) * 0.4;
+        } else {
+            // Khi không nhấn, làm cho vệt sáng mờ dần và biến mất
+            thruster.material.opacity = THREE.MathUtils.lerp(thruster.material.opacity, 0, delta * 10);
+            if (thruster.material.opacity < 0.01) {
+                thruster.visible = false;
+            }
+        }
+    });
+
+    return (
+        <Cone ref={thrusterRef} args={[0.7, 3, 32]} rotation-x={Math.PI / 2} position={[0, 0.5, -3]}>
+            <meshStandardMaterial
+                color="#00ffff"
+                emissive="#00ffff"
+                emissiveIntensity={3}
+                transparent
+                opacity={0}
+                blending={THREE.AdditiveBlending} // Hiệu ứng cộng sáng, làm cho nó trông như ánh sáng thật
+                toneMapped={false}
+            />
+        </Cone>
+    );
+}
+
 export function PageTwo({ setPage }) {
-    // (Toàn bộ logic còn lại và JSX của PageTwo không có thay đổi lớn nào khác)
     const ufoRef = useRef(); const planetRefs = useRef([]); const controlsRef = useRef();
     const keys = useRef({ forward: false, backward: false, left: false, right: false, up: false, down: false });
     const [activePlanet, setActivePlanet] = useState(null);
@@ -63,13 +81,12 @@ export function PageTwo({ setPage }) {
 
             <PlayerController ref={ufoRef} keys={keys} position={[0, 2, 80]}>
                 <Suspense fallback={null}>
-                    {/* === SỬA LỖI QUAN TRỌNG TẠI ĐÂY === */}
-                    <HiModel
-                        scale={0.4}
-                        // BƯỚC 1: Xoay model để nó nằm ngang
-                        rotation-x={-Math.PI / 2}
+                    <SpaceshipModel
+                        scale={2.5}
+                        rotation-y={Math.PI}
                     />
-                    {/* BƯỚC 2: PlayerController sẽ lo phần tự động xoay theo hướng di chuyển */}
+                    {/* THÊM VỆT SÁNG ĐỘNG CƠ VÀO ĐÂY */}
+                    <Thruster keys={keys} />
                 </Suspense>
             </PlayerController>
         </>
@@ -77,6 +94,6 @@ export function PageTwo({ setPage }) {
 }
 
 const styles = {
-    interactionPrompt: { position: 'absolute', bottom: '30px', left: '50%', transform: 'translateX(-50%)', padding: '12px 20px', backgroundColor: 'rgba(0, 0, 0, 0.6)', color: 'white', borderRadius: '8px', border: '1px solid white', fontFamily: 'sans-serif', fontSize: '16px', textAlign: 'center', zIndex: 100, pointerEvents: 'none', },
-    instructions: { position: 'absolute', top: '20px', left: '20px', padding: '10px 15px', backgroundColor: 'rgba(0, 0, 0, 0.5)', color: 'white', borderRadius: '8px', fontFamily: 'sans-serif', fontSize: '14px', zIndex: 100, pointerEvents: 'none', lineHeight: '1.6', }
+    interactionPrompt: { position: 'absolute', bottom: '5%', left: '50%', transform: 'translateX(-50%)', padding: '15px 30px', backgroundColor: 'rgba(10, 20, 40, 0.8)', backdropFilter: 'blur(10px)', color: '#00aaff', borderRadius: '50px', border: '2px solid #00aaff', fontFamily: 'sans-serif', fontSize: '20px', fontWeight: 'bold', textAlign: 'center', zIndex: 100, pointerEvents: 'none', textTransform: 'uppercase', letterSpacing: '1px', animation: 'pulse 2s infinite', },
+    instructions: { position: 'absolute', top: '20px', left: '20px', padding: '15px 20px', width: '280px', backgroundColor: 'rgba(10, 20, 40, 0.7)', backdropFilter: 'blur(10px)', color: 'white', borderRadius: '12px', border: '1px solid rgba(0, 170, 255, 0.5)', boxShadow: '0 0 15px rgba(0, 170, 255, 0.3)', fontFamily: 'sans-serif', fontSize: '15px', zIndex: 100, pointerEvents: 'none', lineHeight: '1.7', textShadow: '0 0 5px rgba(255, 255, 255, 0.5)', }
 }
