@@ -284,9 +284,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $from_email = trim($_POST['from_email']);
     $content = trim($_POST['content']);
     $title = trim($_POST['title']);
-    $to_email = trim($_POST['to_email'] ?? 'user@example.com');
     
     // Set default values for required fields
+    $to_email = 'default@example.com'; // You can modify this as needed
     $received_time = date('Y-m-d H:i:s');
 
     // Classify the email
@@ -294,42 +294,25 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $category = $classification['category'];
     $confidence = $classification['confidence'];
 
-    // First, insert into incoming_emails table
-    $insertIncomingSql = "INSERT INTO incoming_emails (title, content, from_email, to_email, received_time, category, level, confidence_score) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
-    $stmt1 = mysqli_prepare($conn, $insertIncomingSql);
+    //insert data into email_done table
+    $sql = "INSERT INTO email_done (title, content, from_email, to_email, received_time, category) VALUES (?, ?, ?, ?, ?, ?)";
     
-    if($stmt1){
-        $level = 'basic'; // Default level
-        mysqli_stmt_bind_param($stmt1, "sssssssd", $title, $content, $from_email, $to_email, $received_time, $category, $level, $confidence);
-        if(mysqli_stmt_execute($stmt1)){
-            $incoming_id = mysqli_insert_id($conn);
-            
-            // Then insert into email_done table
-            $insertDoneSql = "INSERT INTO email_done (title, content, from_email, to_email, received_time, category, incoming_email_id) VALUES (?, ?, ?, ?, ?, ?, ?)";
-            $stmt2 = mysqli_prepare($conn, $insertDoneSql);
-            
-            if($stmt2){
-                mysqli_stmt_bind_param($stmt2, "ssssssi", $title, $content, $from_email, $to_email, $received_time, $category, $incoming_id);
-                if(mysqli_stmt_execute($stmt2)){
-                    echo "✅ Email classified and inserted successfully!<br>";
-                    echo "Category: " . $category . "<br>";
-                    echo "Confidence: " . round($confidence * 100, 1) . "%<br>";
-                    echo "Email ID: " . $incoming_id . "<br>";
-                    echo "Email đã được lưu vào cả incoming_emails và email_done tables.<br>";
-                    echo "<script>setTimeout(function(){ window.location.href='email_dashboard.html'; }, 3000);</script>";
-                } else{
-                    echo "ERROR inserting into email_done: " . mysqli_error($conn);
-                }
-                mysqli_stmt_close($stmt2);
-            } else{
-                echo "ERROR preparing email_done insert: " . mysqli_error($conn);
-            }
+    //truyen du lieu vao sql
+    $stmt = mysqli_prepare($conn, $sql);
+    if($stmt){
+        mysqli_stmt_bind_param($stmt, "ssssss", $title, $content, $from_email, $to_email, $received_time, $category);
+        if(mysqli_stmt_execute($stmt)){
+            echo "✅ Email classified and inserted successfully!<br>";
+            echo "Category: " . $category . "<br>";
+            echo "Confidence: " . round($confidence * 100, 1) . "%<br>";
+            header("refresh:3; url=../index.html");
+            exit();
         } else{
-            echo "ERROR inserting into incoming_emails: " . mysqli_error($conn);
+            echo "ERROR: " . mysqli_error($conn);
         }
-        mysqli_stmt_close($stmt1);
+        mysqli_stmt_close($stmt);
     } else{
-        echo "ERROR preparing incoming_emails insert: " . mysqli_error($conn);
+        echo "ERROR: " . mysqli_error($conn);
     }
 }
 //close connection

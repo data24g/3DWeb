@@ -96,6 +96,16 @@
             transform: translateY(-2px);
         }
 
+        .btn-info {
+            background: #17a2b8;
+            color: white;
+        }
+
+        .btn-info:hover {
+            background: #138496;
+            transform: translateY(-2px);
+        }
+
         .btn:disabled {
             opacity: 0.6;
             cursor: not-allowed;
@@ -219,6 +229,34 @@
             color: #6c757d;
         }
 
+        .confidence-bar {
+            width: 100px;
+            height: 8px;
+            background: #e9ecef;
+            border-radius: 4px;
+            overflow: hidden;
+            display: inline-block;
+            margin-right: 8px;
+        }
+
+        .confidence-fill {
+            height: 100%;
+            border-radius: 4px;
+            transition: width 0.3s ease;
+        }
+
+        .confidence-high {
+            background: #28a745;
+        }
+
+        .confidence-medium {
+            background: #ffc107;
+        }
+
+        .confidence-low {
+            background: #dc3545;
+        }
+
         .stats {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -278,6 +316,38 @@
             text-align: center;
         }
 
+        .tabs {
+            display: flex;
+            background: #f8f9fa;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        .tab {
+            padding: 15px 25px;
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s ease;
+        }
+
+        .tab.active {
+            background: white;
+            border-bottom-color: #667eea;
+            color: #667eea;
+            font-weight: 600;
+        }
+
+        .tab:hover {
+            background: #e9ecef;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
         @media (max-width: 768px) {
             .controls {
                 flex-direction: column;
@@ -310,6 +380,9 @@
                 <button class="btn btn-success" onclick="refreshTable()">
                     📊 Làm mới Bảng
                 </button>
+                <button class="btn btn-info" onclick="fetchIncomingEmails()">
+                    📥 Lấy dữ liệu từ Incoming
+                </button>
                 <button class="btn btn-warning" id="autoRefreshBtn" onclick="toggleAutoRefresh()">
                     ⏰ Tự động làm mới
                 </button>
@@ -319,51 +392,137 @@
             </div>
         </div>
 
-        <div class="stats" id="stats">
-            <div class="stat-card">
-                <div class="stat-number" id="totalEmails">0</div>
-                <div class="stat-label">Tổng Email</div>
+        <div class="tabs">
+            <div class="tab active" onclick="switchTab('processed')">📋 Email đã xử lý</div>
+            <div class="tab" onclick="switchTab('incoming')">📥 Email gốc</div>
+            <div class="tab" onclick="switchTab('stats')">📊 Thống kê</div>
+        </div>
+
+        <div class="tab-content active" id="processed-tab">
+            <div class="stats" id="stats">
+                <div class="stat-card">
+                    <div class="stat-number" id="totalEmails">0</div>
+                    <div class="stat-label">Tổng Email</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="phishingEmails">0</div>
+                    <div class="stat-label">Giả mạo</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="spamEmails">0</div>
+                    <div class="stat-label">Spam</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="safeEmails">0</div>
+                    <div class="stat-label">An toàn</div>
+                </div>
             </div>
-            <div class="stat-card">
-                <div class="stat-number" id="phishingEmails">0</div>
-                <div class="stat-label">Giả mạo</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-number" id="spamEmails">0</div>
-                <div class="stat-label">Spam</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-number" id="safeEmails">0</div>
-                <div class="stat-label">An toàn</div>
+
+            <div class="table-container">
+                <table class="email-table">
+                    <thead>
+                        <tr>
+                            <th>Thời gian</th>
+                            <th>Người gửi</th>
+                            <th>Tiêu đề</th>
+                            <th>Nội dung</th>
+                            <th>Phân loại</th>
+                            <th>Độ tin cậy</th>
+                        </tr>
+                    </thead>
+                    <tbody id="emailTableBody">
+                        <tr>
+                            <td colspan="6" class="loading">
+                                <div class="spinner"></div>
+                                Đang tải dữ liệu...
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
             </div>
         </div>
 
-        <div class="table-container">
-            <table class="email-table">
-                <thead>
-                    <tr>
-                        <th>Thời gian</th>
-                        <th>Người gửi</th>
-                        <th>Tiêu đề</th>
-                        <th>Nội dung</th>
-                        <th>Phân loại</th>
-                    </tr>
-                </thead>
-                <tbody id="emailTableBody">
-                    <tr>
-                        <td colspan="5" class="loading">
-                            <div class="spinner"></div>
-                            Đang tải dữ liệu...
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
+        <div class="tab-content" id="incoming-tab">
+            <div class="table-container">
+                <table class="email-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Thời gian</th>
+                            <th>Người gửi</th>
+                            <th>Người nhận</th>
+                            <th>Tiêu đề</th>
+                            <th>Nội dung</th>
+                        </tr>
+                    </thead>
+                    <tbody id="incomingTableBody">
+                        <tr>
+                            <td colspan="6" class="loading">
+                                <div class="spinner"></div>
+                                Đang tải dữ liệu incoming...
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="tab-content" id="stats-tab">
+            <div class="stats">
+                <div class="stat-card">
+                    <div class="stat-number" id="totalIncoming">0</div>
+                    <div class="stat-label">Email gốc</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="totalProcessed">0</div>
+                    <div class="stat-label">Đã xử lý</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="avgConfidence">0%</div>
+                    <div class="stat-label">Độ tin cậy TB</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="highConfidence">0</div>
+                    <div class="stat-label">Độ tin cậy cao</div>
+                </div>
+            </div>
         </div>
     </div>
 
     <script>
         let autoRefreshInterval = null;
         let isAutoRefreshEnabled = false;
+        let currentTab = 'processed';
+
+        // Function to switch tabs
+        function switchTab(tabName) {
+            // Hide all tab contents
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            
+            // Remove active class from all tabs
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // Show selected tab content
+            document.getElementById(tabName + '-tab').classList.add('active');
+            
+            // Add active class to clicked tab
+            event.target.classList.add('active');
+            
+            currentTab = tabName;
+            
+            // Load data based on tab
+            if (tabName === 'incoming') {
+                fetchIncomingEmails();
+            } else if (tabName === 'processed') {
+                refreshTable();
+            } else if (tabName === 'stats') {
+                updateStats();
+            }
+        }
 
         // Function to process new emails
         async function processEmails() {
@@ -413,10 +572,74 @@
             }
         }
 
+        // Function to fetch incoming emails
+        async function fetchIncomingEmails() {
+            const tableBody = document.getElementById('incomingTableBody');
+            tableBody.innerHTML = '<tr><td colspan="6" class="loading"><div class="spinner"></div>Đang tải dữ liệu incoming...</td></tr>';
+
+            try {
+                const response = await fetch('view_incoming_emails.php');
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const html = await response.text();
+                
+                // Create a temporary div to parse the HTML
+                const tempDiv = document.createElement('div');
+                tempDiv.innerHTML = html;
+                
+                // Extract table data from the response
+                const tables = tempDiv.querySelectorAll('table');
+                if (tables.length > 0) {
+                    const emailTable = tables[0]; // First table should be the email data
+                    const rows = emailTable.querySelectorAll('tr');
+                    
+                    let tableHTML = '';
+                    for (let i = 1; i < rows.length; i++) { // Skip header row
+                        const cells = rows[i].querySelectorAll('td');
+                        if (cells.length >= 6) {
+                            tableHTML += '<tr>';
+                            tableHTML += '<td class="timestamp">' + cells[0].textContent + '</td>';
+                            tableHTML += '<td class="timestamp">' + cells[1].textContent + '</td>';
+                            tableHTML += '<td class="email-sender">' + cells[2].textContent + '</td>';
+                            tableHTML += '<td class="email-sender">' + cells[3].textContent + '</td>';
+                            tableHTML += '<td class="email-title">' + cells[4].textContent + '</td>';
+                            tableHTML += '<td class="email-content">' + cells[5].textContent + '</td>';
+                            tableHTML += '</tr>';
+                        }
+                    }
+                    
+                    if (tableHTML === '') {
+                        tableHTML = '<tr><td colspan="6" class="loading">📭 Không có dữ liệu incoming</td></tr>';
+                    }
+                    
+                    tableBody.innerHTML = tableHTML;
+                } else {
+                    throw new Error('Không tìm thấy dữ liệu bảng');
+                }
+                
+            } catch (error) {
+                console.error('Error fetching incoming emails:', error);
+                tableBody.innerHTML = `
+                    <tr>
+                        <td colspan="6" class="loading">
+                            <div class="error-message">
+                                ❌ Lỗi tải dữ liệu incoming: ${error.message}
+                                <br><br>
+                                <button class="btn btn-primary" onclick="fetchIncomingEmails()">Thử lại</button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }
+        }
+
         // Function to refresh the email table
         async function refreshTable() {
             const tableBody = document.getElementById('emailTableBody');
-            tableBody.innerHTML = '<tr><td colspan="5" class="loading"><div class="spinner"></div>Đang tải dữ liệu...</td></tr>';
+            tableBody.innerHTML = '<tr><td colspan="6" class="loading"><div class="spinner"></div>Đang tải dữ liệu...</td></tr>';
 
             try {
                 const response = await fetch('process_emails.php');
@@ -446,7 +669,7 @@
                 console.error('Error refreshing table:', error);
                 tableBody.innerHTML = `
                     <tr>
-                        <td colspan="5" class="loading">
+                        <td colspan="6" class="loading">
                             <div class="error-message">
                                 ❌ Lỗi tải dữ liệu: ${error.message}
                                 <br><br>
@@ -466,9 +689,13 @@
             let spam = 0;
             let suspicious = 0;
             let safe = 0;
+            let totalConfidence = 0;
+            let highConfidence = 0;
 
             rows.forEach(row => {
                 const categoryCell = row.querySelector('.category-badge');
+                const confidenceCell = row.querySelector('td:last-child');
+                
                 if (categoryCell) {
                     total++;
                     const category = categoryCell.textContent.trim();
@@ -488,12 +715,29 @@
                             break;
                     }
                 }
+                
+                if (confidenceCell) {
+                    const confidenceText = confidenceCell.textContent;
+                    const confidenceMatch = confidenceText.match(/(\d+(?:\.\d+)?)%/);
+                    if (confidenceMatch) {
+                        const confidence = parseFloat(confidenceMatch[1]);
+                        totalConfidence += confidence;
+                        if (confidence >= 80) {
+                            highConfidence++;
+                        }
+                    }
+                }
             });
 
             document.getElementById('totalEmails').textContent = total;
             document.getElementById('phishingEmails').textContent = phishing;
             document.getElementById('spamEmails').textContent = spam;
             document.getElementById('safeEmails').textContent = safe;
+            
+            // Update stats tab
+            document.getElementById('totalProcessed').textContent = total;
+            document.getElementById('avgConfidence').textContent = total > 0 ? Math.round(totalConfidence / total) + '%' : '0%';
+            document.getElementById('highConfidence').textContent = highConfidence;
         }
 
         // Function to toggle auto refresh
@@ -508,7 +752,13 @@
                 button.className = 'btn btn-warning';
             } else {
                 // Enable auto refresh
-                autoRefreshInterval = setInterval(refreshTable, 10000); // Refresh every 10 seconds
+                autoRefreshInterval = setInterval(() => {
+                    if (currentTab === 'processed') {
+                        refreshTable();
+                    } else if (currentTab === 'incoming') {
+                        fetchIncomingEmails();
+                    }
+                }, 10000); // Refresh every 10 seconds
                 isAutoRefreshEnabled = true;
                 button.textContent = '⏹️ Dừng tự động';
                 button.className = 'btn btn-success';
@@ -520,7 +770,11 @@
             refreshTable();
             
             // Set up auto refresh every 30 seconds
-            setInterval(refreshTable, 30000);
+            setInterval(() => {
+                if (currentTab === 'processed') {
+                    refreshTable();
+                }
+            }, 30000);
         });
     </script>
 </body>
