@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kiểm Tra Email Lừa Đảo - BảoVệ</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="styles.css" rel="stylesheet">
+</head>
+
+<body>
+    <!-- Header -->
+    <header>
+        <nav class="container">
+            <div class="logo">
+                <a href="HomePage.html"><img src="img/logo_btec.png" alt="BTEC FPT Education Logo"></a>
+            </div>
+            <ul class="nav-links">
+                <li><a href="HomePage.html#home">Trang Chủ</a></li>
+                <li><a href="HomePage.html#features">Tính Năng</a></li>
+                <li><a href="HomePage.html#tips">Mẹo An Toàn</a></li>
+                <li><a href="HomePage.html#report">Báo Cáo</a></li>
+                <li><a href="HomePage.html#contact">Liên Hệ</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="container">
+            <h1><i class="fas fa-envelope-open"></i> Kiểm Tra Email Lừa Đảo</h1>
+            <p>Nhập thông tin email để phân tích và phát hiện các dấu hiệu lừa đảo</p>
+        </div>
+    </section>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        <div class="container">
+            <!-- Form Container -->
+            <div class="form-container">
+                <form id="emailCheckForm">
+                    <!-- Email Content Section -->
+                    <div class="form-section">
+                        <h3><i class="fas fa-envelope"></i> Nội Dung Email</h3>
+
+                        <div class="form-group">
+                            <label for="senderEmail">Email Người Gửi:</label>
+                            <input type="email" id="senderEmail" class="form-control" placeholder="example@domain.com"
+                                required>
+                        </div>
+
+                        <!-- <div class="form-group">
+                            <label for="senderName">Tên Người Gửi:</label>
+                            <input type="text" id="senderName" class="form-control" placeholder="Tên người gửi">
+                        </div> -->
+
+                        <div class="form-group">
+                            <label for="subject">Tiêu Đề Email:</label>
+                            <input type="text" id="subject" class="form-control" placeholder="Tiêu đề email" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="emailContent">Nội Dung Email:</label>
+                            <textarea id="emailContent" class="form-control"
+                                placeholder="Nhập nội dung email cần kiểm tra..." required></textarea>
+                        </div>
+                    </div>
+
+                    <!-- Button Group -->
+                    <div class="button-group">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-search"></i> Kiểm Tra Ngay
+                        </button>
+                        <button type="reset" class="btn btn-secondary">
+                            <i class="fas fa-undo"></i> Làm Mới
+                        </button>
+                    </div>
+                </form>
+
+                <!-- Loading -->
+                <div class="loading" id="loading">
+                    <div class="spinner"></div>
+                    <p>Đang phân tích email...</p>
+                </div>
+
+                <!-- Results Section -->
+                <div class="results-section" id="resultsSection">
+                    <div class="result-card" id="resultCard">
+                        <div class="result-header">
+                            <div class="result-icon" id="resultIcon">
+                                <i class="fas fa-shield-alt"></i>
+                            </div>
+                            <div>
+                                <div class="result-title" id="resultTitle">Kết Quả Phân Tích</div>
+                                <div class="result-description" id="resultDescription">Phân tích chi tiết về email của
+                                    bạn</div>
+                            </div>
+                        </div>
+
+                        <div class="risk-factors" id="riskFactors">
+                            <!-- Risk factors will be populated here -->
+                        </div>
+
+                        <div class="button-group" style="margin-top: 2rem;">
+                            <button class="btn btn-success" onclick="reportPhishing()">
+                                <i class="fas fa-flag"></i> Báo Cáo Lừa Đảo
+                            </button>
+                            <button class="btn btn-warning" onclick="saveReport()">
+                                <i class="fas fa-save"></i> Lưu Báo Cáo
+                            </button>
+                            <button class="btn btn-secondary" onclick="resetForm()">
+                                <i class="fas fa-redo"></i> Kiểm Tra Email Khác
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tips Section -->
+            <div class="tips-section">
+                <h3><i class="fas fa-lightbulb"></i> Mẹo Nhận Diện Email Lừa Đảo</h3>
+
+                <div class="tip-item">
+                    <div class="tip-icon">
+                        <i class="fas fa-exclamation-triangle"></i>
+                    </div>
+                    <div>
+                        <strong>Kiểm tra địa chỉ email người gửi:</strong> Email lừa đảo thường có địa chỉ gửi giả mạo
+                        hoặc không chính xác.
+                    </div>
+                </div>
+
+                <div class="tip-item">
+                    <div class="tip-icon">
+                        <i class="fas fa-clock"></i>
+                    </div>
+                    <div>
+                        <strong>Chú ý đến tính khẩn cấp:</strong> Email lừa đảo thường tạo cảm giác khẩn cấp để bạn hành
+                        động ngay lập tức.
+                    </div>
+                </div>
+
+                <div class="tip-item">
+                    <div class="tip-icon">
+                        <i class="fas fa-link"></i>
+                    </div>
+                    <div>
+                        <strong>Kiểm tra các liên kết:</strong> Di chuột qua các liên kết để xem URL thực tế trước khi
+                        nhấp vào.
+                    </div>
+                </div>
+
+                <div class="tip-item">
+                    <div class="tip-icon">
+                        <i class="fas fa-dollar-sign"></i>
+                    </div>
+                    <div>
+                        <strong>Cẩn thận với yêu cầu tiền:</strong> Email yêu cầu chuyển tiền hoặc cung cấp thông tin
+                        tài chính thường là lừa đảo.
+                    </div>
+                </div>
+
+                <div class="tip-item">
+                    <div class="tip-icon">
+                        <i class="fas fa-user-secret"></i>
+                    </div>
+                    <div>
+                        <strong>Không chia sẻ thông tin cá nhân:</strong> Ngân hàng và các tổ chức chính thức không bao
+                        giờ yêu cầu thông tin qua email.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+
+</html>

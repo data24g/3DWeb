@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kiểm Tra Email Dành Cho Doanh Nghiệp - BảoVệ</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="styles.css" rel="stylesheet">
+    <link href="DoanhNghiep.css" rel="stylesheet">
+</head>
+
+<body>
+    <!-- Header -->
+    <header>
+        <nav class="container">
+            <div class="logo">
+                <a href="HomePage.html"><img src="img/logo_btec.png" alt="BTEC FPT Education Logo"></a>
+            </div>
+            <ul class="nav-links">
+                <li><a href="HomePage.html#home">Trang Chủ</a></li>
+                <li><a href="HomePage.html#features">Tính Năng</a></li>
+                <li><a href="HomePage.html#tips">Mẹo An Toàn</a></li>
+                <li><a href="HomePage.html#report">Báo Cáo</a></li>
+                <li><a href="HomePage.html#contact">Liên Hệ</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="container">
+            <h1><i class="fas fa-building"></i> Giải Pháp Email An Toàn Cho Doanh Nghiệp</h1>
+            <p>Phân tích và bảo vệ hệ thống email của doanh nghiệp khỏi các cuộc tấn công lừa đảo tinh vi.</p>
+        </div>
+    </section>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        <div class="container">
+            <!-- Dashboard Controls -->
+            <div class="dashboard-controls">
+                <div class="search-container">
+                    <i class="fas fa-search"></i>
+                    <input type="text" id="emailSearch" class="form-control"
+                        placeholder="Tìm kiếm theo email người gửi...">
+                </div>
+                <div class="filter-container">
+                    <i class="fas fa-filter"></i>
+                    <select id="statusFilter" class="form-control">
+                        <option value="all">Tất Cả Trạng Thái</option>
+                        <option value="An toàn">An toàn</option>
+                        <option value="Nghi ngờ">Nghi ngờ</option>
+                        <option value="Spam">Spam</option>
+                        <option value="Giả mạo">Giả mạo (Phishing)</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Data Table -->
+            <div class="table-container">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Email Người Gửi</th>
+                            <th>Tiêu Đề</th>
+                            <th>Trạng Thái</th>
+                            <th>Ngày Nhận</th>
+                            <th>Hành Động</th>
+                        </tr>
+                    </thead>
+                    <tbody id="emailTableBody">
+                        <!-- Data will be populated by JavaScript -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+
+</html>

@@ -80,7 +80,13 @@ function App() {
 
   const accessPlanet = () => {
     if (activePlanet) {
-      alert(`Đã truy cập vào ${activePlanet.name}!`);
+      // Nếu là Trái Đất, quay về trang chủ (page 1)
+      if (activePlanet.name === 'Earth') {
+        setPage(1);
+      } else {
+        // Đối với các hành tinh khác, hiển thị thông báo như cũ
+        alert(`Coming soon!`);
+      }
     }
   };
 
