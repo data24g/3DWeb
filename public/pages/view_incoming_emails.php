@@ -1,9 +1,42 @@
 <?php
+// Increase execution time and memory limit for large email processing
+ini_set('max_execution_time', 300); // 5 minutes
+ini_set('memory_limit', '512M'); // 512MB memory
+set_time_limit(300); // 5 minutes timeout
+
 //include database connection
 require "connect.php";
 mysqli_set_charset($conn, "utf8mb4");
 
+// Handle AJAX request for checking new emails
+if (isset($_GET['check_new'])) {
+    $currentIncomingCount = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as count FROM incoming_emails"))['count'];
+    $currentProcessedCount = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as count FROM email_done"))['count'];
+    
+    // Get the counts from the main page load
+    $mainIncomingCount = isset($_GET['main_incoming']) ? (int)$_GET['main_incoming'] : 0;
+    $mainProcessedCount = isset($_GET['main_processed']) ? (int)$_GET['main_processed'] : 0;
+    
+    $newIncomingEmails = $currentIncomingCount - $mainIncomingCount;
+    $newProcessedEmails = $currentProcessedCount - $mainProcessedCount;
+    
+    header('Content-Type: application/json');
+    echo json_encode([
+        'new_emails' => $newIncomingEmails,
+        'new_processed' => $newProcessedEmails,
+        'current_incoming' => $currentIncomingCount,
+        'current_processed' => $currentProcessedCount
+    ]);
+    exit;
+}
+
 // --- START OF PHP LOGIC SECTION ---
+
+// Check and add confidence column if it doesn't exist
+if (!columnExists($conn, 'email_done', 'confidence')) {
+    $alterSql = "ALTER TABLE email_done ADD COLUMN confidence DECIMAL(3,2) DEFAULT NULL";
+    mysqli_query($conn, $alterSql);
+}
 
 // Email classification patterns (converted from JavaScript)
 $EMAIL_PATTERNS = [
@@ -292,8 +325,287 @@ function processAndClassifyEmails($conn) {
     // Check if incoming_email_id column exists
     $hasIncomingEmailId = columnExists($conn, 'email_done', 'incoming_email_id');
     
-    // Get emails from incoming_emails that haven't been processed yet
-    $sql = "SELECT * FROM incoming_emails ORDER BY received_time DESC LIMIT 100";
+    // Get total count of unprocessed emails
+    $totalCount = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as count FROM incoming_emails"))['count'];
+    
+    // Process in batches to avoid timeout
+    $batchSize = 100; // Reduced from 500 to 100 for faster processing
+    $offset = 0;
+    $processedCount = 0;
+    $processedEmails = [];
+    
+    while ($offset < $totalCount) {
+        // Get emails from incoming_emails that haven't been processed yet
+        $sql = "SELECT * FROM incoming_emails ORDER BY received_time DESC LIMIT $batchSize OFFSET $offset";
+        $result = mysqli_query($conn, $sql);
+        
+        if ($result && mysqli_num_rows($result) > 0) {
+            while ($row = mysqli_fetch_assoc($result)) {
+                // Classify the email
+                $classification = classifyEmail($row['title'], $row['content'], $row['from_email']);
+                $category = $classification['category'];
+                $confidence = $classification['confidence'];
+                
+                // Check if already processed (using different methods based on column existence)
+                $alreadyProcessed = false;
+                if ($hasIncomingEmailId) {
+                    // Use incoming_email_id if column exists
+                    $checkSql = "SELECT COUNT(*) as count FROM email_done WHERE incoming_email_id = ?";
+                    $checkStmt = mysqli_prepare($conn, $checkSql);
+                    if ($checkStmt) {
+                        mysqli_stmt_bind_param($checkStmt, "i", $row['id']);
+                        mysqli_stmt_execute($checkStmt);
+                        $checkResult = mysqli_stmt_get_result($checkStmt);
+                        $checkRow = mysqli_fetch_assoc($checkResult);
+                        $alreadyProcessed = $checkRow['count'] > 0;
+                        mysqli_stmt_close($checkStmt);
+                    }
+                } else {
+                    // Use email content and sender to check for duplicates
+                    $checkSql = "SELECT COUNT(*) as count FROM email_done WHERE from_email = ? AND title = ? AND content = ?";
+                    $checkStmt = mysqli_prepare($conn, $checkSql);
+                    if ($checkStmt) {
+                        mysqli_stmt_bind_param($checkStmt, "sss", $row['from_email'], $row['title'], $row['content']);
+                        mysqli_stmt_execute($checkStmt);
+                        $checkResult = mysqli_stmt_get_result($checkStmt);
+                        $checkRow = mysqli_fetch_assoc($checkResult);
+                        $alreadyProcessed = $checkRow['count'] > 0;
+                        mysqli_stmt_close($checkStmt);
+                    }
+                }
+                
+                if (!$alreadyProcessed) {
+                    // Insert into email_done table
+                    if ($hasIncomingEmailId) {
+                        $insertSql = "INSERT INTO email_done (title, content, from_email, to_email, received_time, category, confidence, incoming_email_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+                        $stmt = mysqli_prepare($conn, $insertSql);
+                        if ($stmt) {
+                            mysqli_stmt_bind_param($stmt, "ssssssdi", 
+                                $row['title'], 
+                                $row['content'], 
+                                $row['from_email'], 
+                                $row['to_email'], 
+                                $row['received_time'], 
+                                $category,
+                                $confidence,
+                                $row['id']
+                            );
+                        }
+                    } else {
+                        $insertSql = "INSERT INTO email_done (title, content, from_email, to_email, received_time, category, confidence) VALUES (?, ?, ?, ?, ?, ?, ?)";
+                        $stmt = mysqli_prepare($conn, $insertSql);
+                        if ($stmt) {
+                            mysqli_stmt_bind_param($stmt, "ssssssd", 
+                                $row['title'], 
+                                $row['content'], 
+                                $row['from_email'], 
+                                $row['to_email'], 
+                                $row['received_time'], 
+                                $category,
+                                $confidence
+                            );
+                        }
+                    }
+                    
+                    if ($stmt && mysqli_stmt_execute($stmt)) {
+                        $processedCount++;
+                        $processedEmails[] = [
+                            'id' => $row['id'],
+                            'title' => $row['title'],
+                            'from_email' => $row['from_email'],
+                            'category' => $category,
+                            'confidence' => $confidence,
+                            'received_time' => $row['received_time']
+                        ];
+                        mysqli_stmt_close($stmt);
+                    }
+                }
+            }
+        }
+        
+        $offset += $batchSize;
+        
+        // Add progress information
+        $processedEmails[] = [
+            'id' => 'batch_' . ($offset / $batchSize),
+            'title' => "Batch " . ($offset / $batchSize) . " completed",
+            'from_email' => "System",
+            'category' => 'Processing',
+            'confidence' => 1.0,
+            'received_time' => date('Y-m-d H:i:s')
+        ];
+    }
+    
+    return ['count' => $processedCount, 'emails' => $processedEmails, 'total_processed' => $totalCount];
+}
+
+// Function to process emails in smaller batches
+function processAndClassifyEmailsBatch($conn, $currentBatch, $totalBatches) {
+    // Check if incoming_email_id column exists
+    $hasIncomingEmailId = columnExists($conn, 'email_done', 'incoming_email_id');
+    
+    $batchSize = 100;
+    $offset = ($currentBatch - 1) * $batchSize;
+    
+    // Get only unprocessed emails for this specific batch
+    if ($hasIncomingEmailId) {
+        $sql = "
+            SELECT i.* 
+            FROM incoming_emails i 
+            LEFT JOIN email_done e ON i.id = e.incoming_email_id 
+            WHERE e.id IS NULL 
+            ORDER BY i.received_time DESC 
+            LIMIT $batchSize OFFSET $offset
+        ";
+    } else {
+        // Use content-based matching if incoming_email_id doesn't exist
+        $sql = "
+            SELECT i.* 
+            FROM incoming_emails i 
+            LEFT JOIN email_done e ON (i.from_email = e.from_email AND i.title = e.title AND i.content = e.content)
+            WHERE e.id IS NULL 
+            ORDER BY i.received_time DESC 
+            LIMIT $batchSize OFFSET $offset
+        ";
+    }
+    
+    $result = mysqli_query($conn, $sql);
+    
+    $processedCount = 0;
+    $processedEmails = [];
+    $skippedCount = 0;
+    
+    if ($result && mysqli_num_rows($result) > 0) {
+        while ($row = mysqli_fetch_assoc($result)) {
+            // Classify the email
+            $classification = classifyEmail($row['title'], $row['content'], $row['from_email']);
+            $category = $classification['category'];
+            $confidence = $classification['confidence'];
+            
+            // Insert into email_done table
+            if ($hasIncomingEmailId) {
+                $insertSql = "INSERT INTO email_done (title, content, from_email, to_email, received_time, category, confidence, incoming_email_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+                $stmt = mysqli_prepare($conn, $insertSql);
+                if ($stmt) {
+                    mysqli_stmt_bind_param($stmt, "ssssssdi", 
+                        $row['title'], 
+                        $row['content'], 
+                        $row['from_email'], 
+                        $row['to_email'], 
+                        $row['received_time'], 
+                        $category,
+                        $confidence,
+                        $row['id']
+                    );
+                }
+            } else {
+                $insertSql = "INSERT INTO email_done (title, content, from_email, to_email, received_time, category, confidence) VALUES (?, ?, ?, ?, ?, ?, ?)";
+                $stmt = mysqli_prepare($conn, $insertSql);
+                if ($stmt) {
+                    mysqli_stmt_bind_param($stmt, "ssssssd", 
+                        $row['title'], 
+                        $row['content'], 
+                        $row['from_email'], 
+                        $row['to_email'], 
+                        $row['received_time'], 
+                        $category,
+                        $confidence
+                    );
+                }
+            }
+            
+            if ($stmt && mysqli_stmt_execute($stmt)) {
+                $processedCount++;
+                $processedEmails[] = [
+                    'id' => $row['id'],
+                    'title' => $row['title'],
+                    'from_email' => $row['from_email'],
+                    'category' => $category,
+                    'confidence' => $confidence,
+                    'received_time' => $row['received_time']
+                ];
+                mysqli_stmt_close($stmt);
+            }
+        }
+    } else {
+        // No unprocessed emails in this batch
+        $skippedCount = $batchSize;
+    }
+    
+    return [
+        'count' => $processedCount, 
+        'emails' => $processedEmails, 
+        'current_batch' => $currentBatch,
+        'total_batches' => $totalBatches,
+        'progress' => round(($currentBatch / $totalBatches) * 100, 1),
+        'skipped' => $skippedCount
+    ];
+}
+
+// Function to check and fix processing issues
+function checkProcessingStatus($conn) {
+    $total_incoming = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as count FROM incoming_emails"))['count'];
+    $total_processed = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as count FROM email_done"))['count'];
+    
+    // Check if incoming_email_id column exists
+    $hasIncomingEmailId = columnExists($conn, 'email_done', 'incoming_email_id');
+    
+    // Check for emails that should be processed but aren't
+    if ($hasIncomingEmailId) {
+        $unprocessed_sql = "
+            SELECT i.id, i.from_email, i.title 
+            FROM incoming_emails i 
+            LEFT JOIN email_done e ON i.id = e.incoming_email_id 
+            WHERE e.id IS NULL 
+            LIMIT 10
+        ";
+    } else {
+        // Use content-based matching if incoming_email_id doesn't exist
+        $unprocessed_sql = "
+            SELECT i.id, i.from_email, i.title 
+            FROM incoming_emails i 
+            LEFT JOIN email_done e ON (i.from_email = e.from_email AND i.title = e.title AND i.content = e.content)
+            WHERE e.id IS NULL 
+            LIMIT 10
+        ";
+    }
+    
+    $unprocessed_result = mysqli_query($conn, $unprocessed_sql);
+    $unprocessed_count = mysqli_num_rows($unprocessed_result);
+    
+    return [
+        'total_incoming' => $total_incoming,
+        'total_processed' => $total_processed,
+        'unprocessed_count' => $unprocessed_count,
+        'unprocessed_samples' => $unprocessed_result,
+        'has_incoming_email_id' => $hasIncomingEmailId
+    ];
+}
+
+// Function to force process all unprocessed emails
+function forceProcessAllEmails($conn) {
+    $hasIncomingEmailId = columnExists($conn, 'email_done', 'incoming_email_id');
+    
+    // Get all unprocessed emails
+    if ($hasIncomingEmailId) {
+        $sql = "
+            SELECT i.* 
+            FROM incoming_emails i 
+            LEFT JOIN email_done e ON i.id = e.incoming_email_id 
+            WHERE e.id IS NULL 
+            ORDER BY i.received_time DESC
+        ";
+    } else {
+        // Use content-based matching if incoming_email_id doesn't exist
+        $sql = "
+            SELECT i.* 
+            FROM incoming_emails i 
+            LEFT JOIN email_done e ON (i.from_email = e.from_email AND i.title = e.title AND i.content = e.content)
+            WHERE e.id IS NULL 
+            ORDER BY i.received_time DESC
+        ";
+    }
+    
     $result = mysqli_query($conn, $sql);
     
     $processedCount = 0;
@@ -306,77 +618,49 @@ function processAndClassifyEmails($conn) {
             $category = $classification['category'];
             $confidence = $classification['confidence'];
             
-            // Check if already processed (using different methods based on column existence)
-            $alreadyProcessed = false;
+            // Insert into email_done table
             if ($hasIncomingEmailId) {
-                // Use incoming_email_id if column exists
-                $checkSql = "SELECT COUNT(*) as count FROM email_done WHERE incoming_email_id = ?";
-                $checkStmt = mysqli_prepare($conn, $checkSql);
-                if ($checkStmt) {
-                    mysqli_stmt_bind_param($checkStmt, "i", $row['id']);
-                    mysqli_stmt_execute($checkStmt);
-                    $checkResult = mysqli_stmt_get_result($checkStmt);
-                    $checkRow = mysqli_fetch_assoc($checkResult);
-                    $alreadyProcessed = $checkRow['count'] > 0;
-                    mysqli_stmt_close($checkStmt);
+                $insertSql = "INSERT INTO email_done (title, content, from_email, to_email, received_time, category, confidence, incoming_email_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+                $stmt = mysqli_prepare($conn, $insertSql);
+                if ($stmt) {
+                    mysqli_stmt_bind_param($stmt, "ssssssdi", 
+                        $row['title'], 
+                        $row['content'], 
+                        $row['from_email'], 
+                        $row['to_email'], 
+                        $row['received_time'], 
+                        $category,
+                        $confidence,
+                        $row['id']
+                    );
                 }
             } else {
-                // Use email content and sender to check for duplicates
-                $checkSql = "SELECT COUNT(*) as count FROM email_done WHERE from_email = ? AND title = ? AND content = ?";
-                $checkStmt = mysqli_prepare($conn, $checkSql);
-                if ($checkStmt) {
-                    mysqli_stmt_bind_param($checkStmt, "sss", $row['from_email'], $row['title'], $row['content']);
-                    mysqli_stmt_execute($checkStmt);
-                    $checkResult = mysqli_stmt_get_result($checkStmt);
-                    $checkRow = mysqli_fetch_assoc($checkResult);
-                    $alreadyProcessed = $checkRow['count'] > 0;
-                    mysqli_stmt_close($checkStmt);
+                $insertSql = "INSERT INTO email_done (title, content, from_email, to_email, received_time, category, confidence) VALUES (?, ?, ?, ?, ?, ?, ?)";
+                $stmt = mysqli_prepare($conn, $insertSql);
+                if ($stmt) {
+                    mysqli_stmt_bind_param($stmt, "ssssssd", 
+                        $row['title'], 
+                        $row['content'], 
+                        $row['from_email'], 
+                        $row['to_email'], 
+                        $row['received_time'], 
+                        $category,
+                        $confidence
+                    );
                 }
             }
             
-            if (!$alreadyProcessed) {
-                // Insert into email_done table
-                if ($hasIncomingEmailId) {
-                    $insertSql = "INSERT INTO email_done (title, content, from_email, to_email, received_time, category, incoming_email_id) VALUES (?, ?, ?, ?, ?, ?, ?)";
-                    $stmt = mysqli_prepare($conn, $insertSql);
-                    if ($stmt) {
-                        mysqli_stmt_bind_param($stmt, "ssssssi", 
-                            $row['title'], 
-                            $row['content'], 
-                            $row['from_email'], 
-                            $row['to_email'], 
-                            $row['received_time'], 
-                            $category,
-                            $row['id']
-                        );
-                    }
-                } else {
-                    $insertSql = "INSERT INTO email_done (title, content, from_email, to_email, received_time, category) VALUES (?, ?, ?, ?, ?, ?)";
-                    $stmt = mysqli_prepare($conn, $insertSql);
-                    if ($stmt) {
-                        mysqli_stmt_bind_param($stmt, "ssssss", 
-                            $row['title'], 
-                            $row['content'], 
-                            $row['from_email'], 
-                            $row['to_email'], 
-                            $row['received_time'], 
-                            $category
-                        );
-                    }
-                }
-                
-                if ($stmt && mysqli_stmt_execute($stmt)) {
-                    $processedCount++;
-                    $processedEmails[] = [
-                        'id' => $row['id'],
-                        'title' => $row['title'],
-                        'from_email' => $row['from_email'],
-                        'category' => $category,
-                        'confidence' => $confidence,
-                        'received_time' => $row['received_time']
-                    ];
-                    mysqli_stmt_close($stmt);
-                }
+            if ($stmt && mysqli_stmt_execute($stmt)) {
+                $processedCount++;
+                $processedEmails[] = [
+                    'id' => $row['id'],
+                    'title' => $row['title'],
+                    'from_email' => $row['from_email'],
+                    'category' => $category,
+                    'confidence' => $confidence,
+                    'received_time' => $row['received_time']
+                ];
+                mysqli_stmt_close($stmt);
             }
         }
     }
@@ -389,8 +673,120 @@ function processAndClassifyEmails($conn) {
 
 // Process emails if requested, store result in a variable
 $processing_result = null;
+$debug_info = null;
+
+// Auto-process unprocessed emails on page load
+$auto_process_on_load = true;
+if ($auto_process_on_load) {
+    $hasIncomingEmailId = columnExists($conn, 'email_done', 'incoming_email_id');
+    
+    // Check if there are unprocessed emails
+    if ($hasIncomingEmailId) {
+        $unprocessed_count_sql = "
+            SELECT COUNT(*) as count 
+            FROM incoming_emails i 
+            LEFT JOIN email_done e ON i.id = e.incoming_email_id 
+            WHERE e.id IS NULL
+        ";
+    } else {
+        $unprocessed_count_sql = "
+            SELECT COUNT(*) as count 
+            FROM incoming_emails i 
+            LEFT JOIN email_done e ON (i.from_email = e.from_email AND i.title = e.title AND i.content = e.content)
+            WHERE e.id IS NULL
+        ";
+    }
+    
+    $unprocessed_result = mysqli_query($conn, $unprocessed_count_sql);
+    $unprocessed_count = mysqli_fetch_assoc($unprocessed_result)['count'];
+    
+    // Also check by simple calculation
+    $total_incoming = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as count FROM incoming_emails"))['count'];
+    $total_processed = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as count FROM email_done"))['count'];
+    $calculated_unprocessed = $total_incoming - $total_processed;
+    
+    // Use the higher number to ensure we process all unprocessed emails
+    $actual_unprocessed = max($unprocessed_count, $calculated_unprocessed);
+    
+    if ($actual_unprocessed > 0) {
+        // Auto-process all unprocessed emails
+        $processing_result = forceProcessAllEmails($conn);
+        $processing_result['auto_processed'] = true;
+        $processing_result['unprocessed_count'] = $actual_unprocessed;
+        $processing_result['join_count'] = $unprocessed_count;
+        $processing_result['calculated_count'] = $calculated_unprocessed;
+    } else {
+        // All emails are already processed
+        $processing_result = [
+            'count' => 0,
+            'auto_processed' => true,
+            'unprocessed_count' => 0,
+            'all_processed' => true
+        ];
+    }
+}
+
 if (isset($_GET['process']) && $_GET['process'] == '1') {
-    $processing_result = processAndClassifyEmails($conn);
+    // Check if this is a batch processing request
+    $batch = isset($_GET['batch']) ? (int)$_GET['batch'] : 0;
+    $total_batches = isset($_GET['total_batches']) ? (int)$_GET['total_batches'] : 0;
+    $auto_process = isset($_GET['auto']) ? (bool)$_GET['auto'] : false;
+    $force_process = isset($_GET['force']) ? (bool)$_GET['force'] : false;
+    
+    if ($force_process) {
+        // Force process all unprocessed emails
+        $processing_result = forceProcessAllEmails($conn);
+        $debug_info = checkProcessingStatus($conn);
+    } elseif ($batch == 0) {
+        // First time processing - calculate total batches based on unprocessed emails
+        $hasIncomingEmailId = columnExists($conn, 'email_done', 'incoming_email_id');
+        
+        if ($hasIncomingEmailId) {
+            $unprocessed_count_sql = "
+                SELECT COUNT(*) as count 
+                FROM incoming_emails i 
+                LEFT JOIN email_done e ON i.id = e.incoming_email_id 
+                WHERE e.id IS NULL
+            ";
+        } else {
+            $unprocessed_count_sql = "
+                SELECT COUNT(*) as count 
+                FROM incoming_emails i 
+                LEFT JOIN email_done e ON (i.from_email = e.from_email AND i.title = e.title AND i.content = e.content)
+                WHERE e.id IS NULL
+            ";
+        }
+        
+        $unprocessed_result = mysqli_query($conn, $unprocessed_count_sql);
+        $unprocessed_count = mysqli_fetch_assoc($unprocessed_result)['count'];
+        
+        $batch_size = 100;
+        $total_batches = ceil($unprocessed_count / $batch_size);
+        
+        if ($total_batches == 0) {
+            // No unprocessed emails
+            header("Location: ?");
+            exit;
+        }
+        
+        if ($auto_process) {
+            // Auto processing - redirect to first batch with auto flag
+            header("Location: ?process=1&batch=1&total_batches=$total_batches&auto=1");
+        } else {
+            // Manual processing - redirect to first batch
+            header("Location: ?process=1&batch=1&total_batches=$total_batches");
+        }
+        exit;
+    } else {
+        // Process specific batch
+        $processing_result = processAndClassifyEmailsBatch($conn, $batch, $total_batches);
+        $processing_result['auto_process'] = $auto_process;
+    }
+}
+
+// Check processing status for debug
+if (isset($_GET['debug']) && $_GET['debug'] == '1') {
+    $debug_info = checkProcessingStatus($conn);
 }
 
 // Start outputting the HTML document
@@ -415,7 +811,7 @@ if (isset($_GET['process']) && $_GET['process'] == '1') {
         max-width: 1400px;
         margin: 0 auto;
         background: white;
-        border-radius: 15px;
+        border-radius: 20px;
         box-shadow: 0 20px 40px rgba(0,0,0,0.1);
         overflow: hidden;
     }
@@ -423,132 +819,164 @@ if (isset($_GET['process']) && $_GET['process'] == '1') {
     .header {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         color: white;
-        padding: 30px;
+        padding: 40px;
         text-align: center;
     }
     
     .header h1 {
-        font-size: 2.5em;
-        margin-bottom: 10px;
+        font-size: 2.8em;
+        margin-bottom: 15px;
+        font-weight: 300;
     }
     
     .header p {
-        font-size: 1.1em;
+        font-size: 1.2em;
         opacity: 0.9;
+        margin: 0;
     }
     
     .controls {
-        padding: 20px;
+        padding: 25px;
         background: #f8f9fa;
         border-bottom: 1px solid #e9ecef;
         display: flex;
         justify-content: space-between;
         align-items: center;
         flex-wrap: wrap;
-        gap: 15px;
+        gap: 20px;
     }
     
     .btn {
-        padding: 12px 24px;
+        padding: 15px 30px;
         border: none;
-        border-radius: 8px;
+        border-radius: 12px;
         cursor: pointer;
         font-weight: 600;
         transition: all 0.3s ease;
         text-decoration: none;
         display: inline-block;
-        font-size: 14px;
+        font-size: 15px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
     }
     
     .btn-primary {
-        background: #007bff;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         color: white;
     }
     
     .btn-primary:hover {
-        background: #0056b3;
-        transform: translateY(-2px);
+        transform: translateY(-3px);
+        box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
     }
     
     .btn-success {
-        background: #28a745;
+        background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
         color: white;
     }
     
     .btn-success:hover {
-        background: #1e7e34;
-        transform: translateY(-2px);
+        transform: translateY(-3px);
+        box-shadow: 0 8px 25px rgba(40, 167, 69, 0.4);
     }
     
     .btn-info {
-        background: #17a2b8;
+        background: linear-gradient(135deg, #17a2b8 0%, #138496 100%);
         color: white;
     }
     
     .btn-info:hover {
-        background: #138496;
-        transform: translateY(-2px);
+        transform: translateY(-3px);
+        box-shadow: 0 8px 25px rgba(23, 162, 184, 0.4);
+    }
+    
+    .btn-secondary {
+        background: linear-gradient(135deg, #6c757d 0%, #495057 100%);
+        color: white;
+    }
+    
+    .btn-secondary:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 8px 25px rgba(108, 117, 125, 0.4);
+    }
+    
+    .btn-warning {
+        background: linear-gradient(135deg, #ffc107 0%, #e0a800 100%);
+        color: #212529;
+    }
+    
+    .btn-warning:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 8px 25px rgba(255, 193, 7, 0.4);
     }
     
     .status {
-        padding: 10px 20px;
-        border-radius: 8px;
+        padding: 15px 25px;
+        border-radius: 12px;
         font-weight: 600;
         display: inline-block;
-        font-size: 14px;
+        font-size: 15px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
     }
     
     .status.success {
-        background: #d4edda;
+        background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
         color: #155724;
         border: 1px solid #c3e6cb;
     }
     
+    .status.info {
+        background: linear-gradient(135deg, #d1ecf1 0%, #bee5eb 100%);
+        color: #0c5460;
+        border: 1px solid #bee5eb;
+    }
+    
     .status.processing {
-        background: #fff3cd;
+        background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%);
         color: #856404;
         border: 1px solid #ffeaa7;
     }
     
     .status.error {
-        background: #f8d7da;
+        background: linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%);
         color: #721c24;
         border: 1px solid #f5c6cb;
     }
     
     .section {
-        padding: 20px;
+        padding: 30px;
         border-bottom: 1px solid #e9ecef;
     }
     
     .section h2 {
         color: #333;
-        margin-bottom: 20px;
+        margin-bottom: 25px;
         display: flex;
         align-items: center;
-        gap: 10px;
-        font-size: 1.5em;
+        gap: 15px;
+        font-size: 1.8em;
+        font-weight: 600;
     }
     
     .table-container {
         overflow-x: auto;
-        margin-top: 20px;
+        margin-top: 25px;
+        border-radius: 15px;
+        box-shadow: 0 8px 25px rgba(0,0,0,0.08);
     }
     
     .email-table {
         width: 100%;
         border-collapse: collapse;
         background: white;
-        border-radius: 10px;
+        border-radius: 15px;
         overflow: hidden;
-        box-shadow: 0 5px 15px rgba(0,0,0,0.08);
         font-size: 14px;
     }
     
     .email-table th {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         color: white;
-        padding: 15px;
+        padding: 20px;
         text-align: left;
         font-weight: 600;
         font-size: 0.9em;
@@ -557,43 +985,46 @@ if (isset($_GET['process']) && $_GET['process'] == '1') {
     }
     
     .email-table td {
-        padding: 15px;
+        padding: 18px 20px;
         border-bottom: 1px solid #e9ecef;
         vertical-align: top;
-        line-height: 1.5;
+        line-height: 1.6;
     }
     
     .email-table tr:hover {
         background: #f8f9fa;
+        transform: scale(1.01);
+        transition: all 0.2s ease;
     }
     
     .category-badge {
-        padding: 6px 12px;
-        border-radius: 20px;
+        padding: 8px 16px;
+        border-radius: 25px;
         font-size: 0.8em;
         font-weight: 600;
         text-transform: uppercase;
         letter-spacing: 0.5px;
         display: inline-block;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
     }
     
     .category-phishing {
-        background: #dc3545;
+        background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
         color: white;
     }
     
     .category-spam {
-        background: #ffc107;
+        background: linear-gradient(135deg, #ffc107 0%, #e0a800 100%);
         color: #212529;
     }
     
     .category-suspicious {
-        background: #fd7e14;
+        background: linear-gradient(135deg, #fd7e14 0%, #e55a00 100%);
         color: white;
     }
     
     .category-safe {
-        background: #28a745;
+        background: linear-gradient(135deg, #28a745 0%, #1e7e34 100%);
         color: white;
     }
     
@@ -628,38 +1059,47 @@ if (isset($_GET['process']) && $_GET['process'] == '1') {
     
     .stats {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-        gap: 20px;
-        padding: 20px;
-        background: #f8f9fa;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 25px;
+        padding: 30px;
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
     }
     
     .stat-card {
         background: white;
-        padding: 20px;
-        border-radius: 10px;
+        padding: 30px;
+        border-radius: 15px;
         text-align: center;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+        transition: all 0.3s ease;
+    }
+    
+    .stat-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 15px 35px rgba(0,0,0,0.15);
     }
     
     .stat-number {
-        font-size: 2em;
+        font-size: 2.5em;
         font-weight: bold;
-        color: #667eea;
-        margin-bottom: 5px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        margin-bottom: 10px;
     }
     
     .stat-label {
         color: #6c757d;
-        font-size: 0.9em;
+        font-size: 1em;
+        font-weight: 500;
     }
     
     .empty-message {
         text-align: center;
-        padding: 40px;
+        padding: 60px;
         color: #6c757d;
         font-style: italic;
-        font-size: 1.1em;
+        font-size: 1.2em;
     }
     
     /* Responsive adjustments */
@@ -671,13 +1111,27 @@ if (isset($_GET['process']) && $_GET['process'] == '1') {
         
         .email-table th, 
         .email-table td {
-            padding: 10px;
+            padding: 15px;
             font-size: 0.8em;
         }
         
         .email-title, 
         .email-content {
             max-width: 150px;
+        }
+        
+        .stats {
+            grid-template-columns: 1fr;
+            gap: 15px;
+            padding: 20px;
+        }
+        
+        .stat-card {
+            padding: 20px;
+        }
+        
+        .stat-number {
+            font-size: 2em;
         }
     }
 </style>
@@ -695,16 +1149,85 @@ if (isset($_GET['process']) && $_GET['process'] == '1') {
     if ($processing_result) {
         echo "<div class='controls'>";
         echo "<div class='status success'>";
-        echo "✅ Đã xử lý và phân loại {$processing_result['count']} email mới!";
+        
+        if (isset($processing_result['auto_processed']) && $processing_result['auto_processed']) {
+            if (isset($processing_result['all_processed']) && $processing_result['all_processed']) {
+                echo "✅ Tất cả email đã được xử lý và phân loại!";
+            } else {
+                echo "✅ Tự động xử lý {$processing_result['count']} email chưa được xử lý";
+                if (isset($processing_result['join_count']) && isset($processing_result['calculated_count'])) {
+                    echo "<br><small>📊 JOIN: {$processing_result['join_count']}, Tính toán: {$processing_result['calculated_count']}</small>";
+                }
+            }
+        } elseif (isset($processing_result['progress'])) {
+            echo "✅ Batch {$processing_result['current_batch']}/{$processing_result['total_batches']} - {$processing_result['progress']}% hoàn thành";
+            
+            if (isset($processing_result['skipped']) && $processing_result['skipped'] > 0) {
+                echo "<br><small>⏭️ Bỏ qua {$processing_result['skipped']} email đã xử lý</small>";
+            }
+            
+            if (isset($processing_result['auto_process']) && $processing_result['auto_process']) {
+                echo "<br><small>🤖 Đang tự động xử lý...</small>";
+            }
+        } else {
+            if (isset($processing_result['total_processed'])) {
+                echo "✅ Đã xử lý {$processing_result['count']} email mới từ tổng số {$processing_result['total_processed']} email";
+            } else {
+                echo "✅ Đã xử lý {$processing_result['count']} email mới";
+            }
+        }
         echo "</div>";
-        echo "<a href='?' class='btn btn-primary'>🔄 Làm mới</a>";
-        echo "<a href='email_dashboard.html' class='btn btn-info'>📊 Dashboard</a>";
         echo "</div>";
     }
 
     // Statistics Section
     $incomingCount = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as count FROM incoming_emails"))['count'];
     $processedCount = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as count FROM email_done"))['count'];
+    
+    // Calculate unprocessed emails accurately
+    $hasIncomingEmailId = columnExists($conn, 'email_done', 'incoming_email_id');
+    if ($hasIncomingEmailId) {
+        $unprocessed_sql = "
+            SELECT COUNT(*) as count 
+            FROM incoming_emails i 
+            LEFT JOIN email_done e ON i.id = e.incoming_email_id 
+            WHERE e.id IS NULL
+        ";
+    } else {
+        $unprocessed_sql = "
+            SELECT COUNT(*) as count 
+            FROM incoming_emails i 
+            LEFT JOIN email_done e ON (i.from_email = e.from_email AND i.title = e.title AND i.content = e.content)
+            WHERE e.id IS NULL
+        ";
+    }
+    $unprocessedCount = mysqli_fetch_assoc(mysqli_query($conn, $unprocessed_sql))['count'];
+    
+    // Debug: Check if there's a mismatch
+    $expected_unprocessed = $incomingCount - $processedCount;
+    if ($unprocessedCount != $expected_unprocessed) {
+        // There might be an issue with the JOIN logic
+        $unprocessedCount = $expected_unprocessed;
+    }
+    
+    // Auto-process if there are unprocessed emails and no processing result yet
+    if ($unprocessedCount > 0 && !isset($processing_result)) {
+        $processing_result = forceProcessAllEmails($conn);
+        $processing_result['auto_processed'] = true;
+        $processing_result['unprocessed_count'] = $unprocessedCount;
+    }
+    
+    // Force immediate processing if still have unprocessed emails
+    if ($unprocessedCount > 0) {
+        // Force process all remaining unprocessed emails
+        $force_result = forceProcessAllEmails($conn);
+        if ($force_result['count'] > 0) {
+            $processing_result = $force_result;
+            $processing_result['auto_processed'] = true;
+            $processing_result['force_processed'] = true;
+            $processing_result['unprocessed_count'] = $unprocessedCount;
+        }
+    }
 
     echo "<div class='stats'>";
     echo "<div class='stat-card'>";
@@ -716,24 +1239,12 @@ if (isset($_GET['process']) && $_GET['process'] == '1') {
     echo "<div class='stat-label'>Đã xử lý</div>";
     echo "</div>";
     echo "<div class='stat-card'>";
-    echo "<div class='stat-number'>".number_format($incomingCount - $processedCount)."</div>";
+    echo "<div class='stat-number'>".number_format($unprocessedCount)."</div>";
     echo "<div class='stat-label'>Chưa xử lý</div>";
     echo "</div>";
     echo "<div class='stat-card'>";
     echo "<div class='stat-number'>".round(($processedCount / max($incomingCount, 1)) * 100)."%</div>";
     echo "<div class='stat-label'>Tỷ lệ xử lý</div>";
-    echo "</div>";
-    echo "</div>";
-
-    // Controls Section
-    echo "<div class='controls'>";
-    echo "<div>";
-    echo "<a href='?process=1' class='btn btn-primary'>🔄 Xử lý và phân loại email</a>";
-    echo "<a href='check_database.php' class='btn btn-info'>🔧 Kiểm tra cơ sở dữ liệu</a>";
-    echo "<a href='email_dashboard.html' class='btn btn-success'>📊 Xem bảng điều khiển</a>";
-    echo "</div>";
-    echo "<div class='status success'>";
-    echo "✅ Hệ thống sẵn sàng";
     echo "</div>";
     echo "</div>";
 
@@ -821,7 +1332,7 @@ if (isset($_GET['process']) && $_GET['process'] == '1') {
             echo "<td class='email-title'>".htmlspecialchars($row['title'])."</td>";
             echo "<td class='email-content'>".htmlspecialchars(substr($row['content'], 0, 100)).(strlen($row['content']) > 100 ? '...' : '')."</td>";
             echo "<td><span class='category-badge $categoryClass'>".htmlspecialchars($row['category'])."</span></td>";
-            echo "<td>".($row['confidence'] ? round($row['confidence'] * 100, 1).'%' : 'N/A')."</td>";
+            echo "<td>".(isset($row['confidence']) && $row['confidence'] ? round($row['confidence'] * 100, 1).'%' : 'N/A')."</td>";
             echo "</tr>";
         }
         
@@ -836,6 +1347,11 @@ if (isset($_GET['process']) && $_GET['process'] == '1') {
     }
     echo "</div>";
 
+    // Final navigation
+    echo "<div class='controls'>";
+    echo "<a href='HomePage.html' class='btn btn-primary'>🏠 Quay về trang chủ</a>";
+    echo "</div>";
+
     echo "</div>";
 
     // FIX: Add closing body and html tags
@@ -843,3 +1359,83 @@ if (isset($_GET['process']) && $_GET['process'] == '1') {
 
     mysqli_close($conn);
     ?>
+    
+    <script>
+    // Auto-processing functionality
+    function autoProcessBatches() {
+        // Check if we're in auto-processing mode
+        const urlParams = new URLSearchParams(window.location.search);
+        const autoProcess = urlParams.get('auto');
+        const currentBatch = parseInt(urlParams.get('batch')) || 0;
+        const totalBatches = parseInt(urlParams.get('total_batches')) || 0;
+        
+        if (autoProcess === '1' && currentBatch > 0 && currentBatch < totalBatches) {
+            // Auto-process next batch after a short delay
+            setTimeout(function() {
+                const nextBatch = currentBatch + 1;
+                const nextUrl = `?process=1&batch=${nextBatch}&total_batches=${totalBatches}&auto=1`;
+                window.location.href = nextUrl;
+            }, 2000); // 2 second delay between batches
+        }
+    }
+    
+    // Real-time monitoring for new emails
+    function checkForNewEmails() {
+        // Get current email counts
+        const currentIncomingCount = <?php echo $incomingCount; ?>;
+        const currentProcessedCount = <?php echo $processedCount; ?>;
+        
+        // Check for new emails every 30 seconds
+        setInterval(function() {
+            const checkUrl = `?check_new=1&main_incoming=${currentIncomingCount}&main_processed=${currentProcessedCount}`;
+            fetch(checkUrl, { method: 'GET' })
+                .then(response => response.text())
+                .then(data => {
+                    try {
+                        const result = JSON.parse(data);
+                        if (result.new_emails > 0) {
+                            // New emails detected, refresh the page
+                            console.log('Phát hiện ' + result.new_emails + ' email mới, đang cập nhật...');
+                            location.reload();
+                        }
+                    } catch (e) {
+                        // If response is not JSON, it means page needs refresh
+                        location.reload();
+                    }
+                })
+                .catch(error => {
+                    console.log('Lỗi kiểm tra email mới:', error);
+                });
+        }, 30000); // Check every 30 seconds
+    }
+    
+    // Auto-refresh page every 2 minutes to show latest data
+    function autoRefreshPage() {
+        setInterval(function() {
+            console.log('Tự động cập nhật trang...');
+            location.reload();
+        }, 120000); // Refresh every 2 minutes
+    }
+    
+    // Start auto-processing when page loads
+    document.addEventListener('DOMContentLoaded', function() {
+        autoProcessBatches();
+        checkForNewEmails();
+        autoRefreshPage();
+        
+        // Show status message
+        const statusDiv = document.createElement('div');
+        statusDiv.style.cssText = 'position: fixed; top: 10px; right: 10px; background: rgba(0,123,255,0.9); color: white; padding: 10px; border-radius: 5px; z-index: 1000; font-size: 12px;';
+        statusDiv.innerHTML = '🔄 Tự động cập nhật mỗi 2 phút<br>📧 Kiểm tra email mới mỗi 30 giây';
+        document.body.appendChild(statusDiv);
+        
+        // Remove status after 5 seconds
+        setTimeout(function() {
+            statusDiv.style.opacity = '0';
+            statusDiv.style.transition = 'opacity 1s';
+            setTimeout(function() {
+                statusDiv.remove();
+            }, 1000);
+        }, 5000);
+    });
+    </script>

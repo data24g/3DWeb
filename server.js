@@ -1,10 +1,16 @@
 import express from 'express';
 import mysql from 'mysql2/promise';
 import cors from 'cors';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+// Get __dirname equivalent for ES modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // --- CONFIGURATION ---
 const app = express();
-const PORT = 3001; // We'll run this on a different port than the React app
+const PORT = process.env.PORT || 3001;
 
 const dbConfig = {
     host: '62.146.236.71',
@@ -18,6 +24,9 @@ const dbConfig = {
 // --- MIDDLEWARE ---
 app.use(cors()); // Allow requests from our React app
 app.use(express.json()); // Allow the server to understand JSON
+
+// Serve static files from React build
+app.use(express.static(path.join(__dirname, 'dist')));
 
 // --- API ENDPOINTS ---
 
@@ -52,8 +61,14 @@ app.get('/api/tables', async (req, res) => {
     }
 });
 
+// Serve React app for all other routes (SPA)
+app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, 'dist', 'index.html'));
+});
 
 // --- SERVER STARTUP ---
 app.listen(PORT, () => {
     console.log(`🚀 Server is running on http://localhost:${PORT}`);
+    console.log(`📱 Frontend: http://localhost:${PORT}`);
+    console.log(`🔧 API: http://localhost:${PORT}/api`);
 }); 

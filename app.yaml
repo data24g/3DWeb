@@ -1,0 +1,33 @@
+runtime: nodejs18
+
+env_variables:
+  NODE_ENV: "production"
+  PORT: "8080"
+
+handlers:
+  # Serve React app (frontend) first
+  - url: /
+    static_files: dist/index.html
+    upload: dist/index.html
+    secure: always
+
+  - url: /(.*\.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot))$
+    static_files: dist/\1
+    upload: dist/(.*\.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot))$
+    secure: always
+
+  # Serve React app for all other routes (SPA)
+  - url: /.*
+    static_files: dist/index.html
+    upload: dist/index.html
+    secure: always
+
+automatic_scaling:
+  target_cpu_utilization: 0.65
+  min_instances: 1
+  max_instances: 10
+
+resources:
+  cpu: 1
+  memory_gb: 0.5
+  disk_size_gb: 10 
