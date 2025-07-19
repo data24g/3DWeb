@@ -1,6 +1,8 @@
 import React, { useState, Suspense, useEffect, useLayoutEffect, useRef } from 'react';
-import { Canvas } from '@react-three/fiber';
+import { Canvas, useThree } from '@react-three/fiber'; // Thêm useThree vào import
 import { Joystick } from 'react-joystick-component';
+import * as THREE from 'three'; // Thêm import cho THREE để dùng Vector3
+
 import Experience from './Experience';
 import { PageTwo } from './PageTwo';
 import { TeamPage } from './TeamPage';
@@ -22,6 +24,31 @@ function useWindowSize() {
   return { width: size[0], height: size[1] };
 }
 
+// =============================================================
+// === PHẦN THÊM VÀO: COMPONENT QUẢN LÝ CAMERA ===
+// =============================================================
+// Component này không render gì cả, nó chỉ có nhiệm vụ
+// lắng nghe sự thay đổi của 'page' và reset camera khi cần thiết.
+function CameraManager({ page }) {
+  const { camera } = useThree();
+
+  useEffect(() => {
+    // Khi chuyển đến Page 3 (TeamPage) hoặc quay lại Page 1 (Experience)
+    if (page === 1 || page === 3) {
+      // 1. Reset camera về vị trí ban đầu
+      camera.position.set(0, 2, 8);
+
+      // 2. Đảm bảo camera nhìn vào trung tâm của cảnh (gốc tọa độ)
+      camera.lookAt(new THREE.Vector3(0, 0, 0));
+
+      // 3. Cập nhật ma trận chiếu của camera để thay đổi có hiệu lực
+      camera.updateProjectionMatrix();
+    }
+  }, [page, camera]); // Chạy lại effect này mỗi khi 'page' thay đổi
+
+  return null; // Không hiển thị gì trong scene
+}
+
 
 // Component UI được cập nhật
 function UI({ page, activePlanet, isMobileView, onAccessPlanet }) {
@@ -29,7 +56,6 @@ function UI({ page, activePlanet, isMobileView, onAccessPlanet }) {
     <>
       {page === 2 && (
         <>
-          {/* 1. Chỉ hiển thị hướng dẫn trên giao diện Desktop (!isMobileView) */}
           {!isMobileView && (
             <div className="instructions-panel">
               <strong>Điều Khiển:</strong><br />
@@ -40,7 +66,6 @@ function UI({ page, activePlanet, isMobileView, onAccessPlanet }) {
             </div>
           )}
 
-          {/* 2. Nút khám phá vẫn hoạt động như cũ */}
           {activePlanet && (
             <button className="access-button" onClick={onAccessPlanet}>
               Khám phá {activePlanet.name}
@@ -57,10 +82,7 @@ function App() {
   const [page, setPage] = useState(1);
   const [activePlanet, setActivePlanet] = useState(null);
 
-  // 3. Sử dụng hook mới để lấy chiều rộng màn hình
   const { width } = useWindowSize();
-
-  // 4. Xác định giao diện "mobile" dựa trên chiều rộng, 768px là một ngưỡng phổ biến
   const isMobileView = width <= 768;
 
   const joystickRef = useRef({ x: 0, y: 0, direction: null, distance: 0 });
@@ -80,12 +102,10 @@ function App() {
 
   const accessPlanet = () => {
     if (activePlanet) {
-      // Nếu là Trái Đất, quay về trang chủ (page 1)
       if (activePlanet.name === 'Earth') {
-        setPage(1);
+        setPage(3);
       } else {
-        // Đối với các hành tinh khác, hiển thị thông báo như cũ
-        alert(`Coming soon!`);
+        alert(`Hành Tinh Này Chưa Phát Hiện Sự Sống`);
       }
     }
   };
@@ -108,13 +128,12 @@ function App() {
         camera={{ position: [0, 2, 8], fov: 45 }}
         dpr={[1, 1.5]}
       >
+        {/* SỬ DỤNG COMPONENT QUẢN LÝ CAMERA */}
+        <CameraManager page={page} />
+
         <Suspense fallback={null}>
-          {/* Thêm isMobileView vào prop của Experience */}
           {page === 1 && <Experience setPage={setPage} isMobileView={isMobileView} />}
-
           {page === 2 && <PageTwo setActivePlanet={setActivePlanet} setPage={setPage} joystickRef={joystickRef} />}
-
-          {/* Thêm isMobileView vào prop của TeamPage */}
           {page === 3 && <TeamPage setPage={setPage} isMobileView={isMobileView} />}
         </Suspense>
 
@@ -123,7 +142,6 @@ function App() {
         </EffectComposer>
       </Canvas>
 
-      {/* 5. Chỉ hiển thị Joystick nếu là GIAO DIỆN mobile VÀ đang ở trang 2 */}
       {isMobileView && page === 2 && (
         <div style={{
           position: 'absolute',
@@ -141,7 +159,6 @@ function App() {
         </div>
       )}
 
-      {/* 6. Truyền isMobileView thay cho isTouchDevice */}
       <UI
         page={page}
         activePlanet={activePlanet}

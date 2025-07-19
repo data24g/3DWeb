@@ -32,11 +32,15 @@ export function TeamPage({ setPage, isMobileView }) {
             <ambientLight intensity={0.8} />
             <directionalLight position={[3, 5, 2]} intensity={2} />
 
-            {/* Nút quay lại trang 2 (Space ship) */}
+            {/* ========================================================== */}
+            {/* === THAY ĐỔI DUY NHẤT NẰM Ở TRONG onClick NÀY === */}
+            {/* ========================================================== */}
             <CustomButton
                 position={[0, 0, 0]}
-                text="Back"
-                onClick={() => setPage(2)}
+                text="" // Đổi chữ để cho rõ ràng
+                // Trước đây: onClick={() => setPage(2)}
+                // Bây giờ: Điều hướng đến trang HomePage.html
+                onClick={() => { window.location.href = '/pages/HomePage.html'; }}
             />
 
             <Float speed={1.5} rotationIntensity={0.5} floatIntensity={0.2}>
@@ -55,9 +59,6 @@ export function TeamPage({ setPage, isMobileView }) {
                 </Text>
             </Float>
 
-            {/* ============================================== */}
-            {/* === ÁP DỤNG HIỆU ỨNG CHO CHỮ "VOTE" Ở ĐÂY === */}
-            {/* ============================================== */}
             <Billboard>
                 <Float speed={1.5} rotationIntensity={0.5} floatIntensity={0.4}>
                     <Text
@@ -76,7 +77,6 @@ export function TeamPage({ setPage, isMobileView }) {
                 </Float>
             </Billboard>
 
-            {/* Component MemberName đã có sẵn Billboard và Float nên không cần thay đổi */}
             {members.map((name, index) => {
                 const angle = (index / members.length) * Math.PI * 2;
                 const x = radius * Math.cos(angle);

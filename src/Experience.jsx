@@ -2,32 +2,22 @@ import { useRef, useEffect } from 'react';
 import { Text, Billboard, Float, Stars, Sparkles, OrbitControls } from '@react-three/drei';
 import { CustomButton } from './CustomButton';
 
-// Nhận isMobileView từ App.jsx
-export default function Experience({ setPage, isMobileView }) {
+// Trang này nhận `setPage` từ App.jsx để có thể ra lệnh chuyển trang
+export default function Experience({ setPage }) {
     const sceneRef = useRef();
 
+    // Xử lý sự kiện mất WebGL context
     useEffect(() => {
         const handleContextLost = (event) => {
             event.preventDefault();
             console.warn('WebGL context lost. Attempting to recover...');
         };
-
         const canvas = document.querySelector('canvas');
-        if (canvas) { // Thêm kiểm tra để tránh lỗi nếu canvas chưa tồn tại
-            canvas.addEventListener('webglcontextlost', handleContextLost);
-            return () => {
-                canvas.removeEventListener('webglcontextlost', handleContextLost);
-            };
-        }
+        canvas.addEventListener('webglcontextlost', handleContextLost);
+        return () => {
+            canvas.removeEventListener('webglcontextlost', handleContextLost);
+        };
     }, []);
-
-    // ===== RESPONSIVE LOGIC =====
-    // Định nghĩa vị trí và kích thước dựa trên isMobileView
-    const titleFontSize = isMobileView ? 1.2 : 1.5;
-    const welcomeFontSize = isMobileView ? 0.35 : 0.5;
-    const welcomePosition = isMobileView ? [0, 1.8, 0] : [0, 2.5, 0];
-    const buttonPosition = isMobileView ? [0, -1.2, 0] : [2.5, -0.5, 2];
-    const clickMePosition = isMobileView ? [0, -0.4, 0] : [3.5, -0.5, 2];
 
     return (
         <group ref={sceneRef}>
@@ -39,10 +29,8 @@ export default function Experience({ setPage, isMobileView }) {
                 maxPolarAngle={Math.PI / 1.8}
                 target={[0, 0.5, 0]}
             />
-
             <Stars radius={50} depth={30} count={2000} factor={3} fade speed={0.5} />
             <Sparkles count={50} scale={5} size={1} speed={0.2} />
-
             <ambientLight intensity={0.5} />
             <directionalLight position={[1, 2, 3]} intensity={1.5} />
 
@@ -50,7 +38,7 @@ export default function Experience({ setPage, isMobileView }) {
                 <Float speed={1.5} rotationIntensity={1.5} floatIntensity={0.5}>
                     <Text
                         font="/fonts/Exile-Regular.ttf"
-                        fontSize={titleFontSize} // Sử dụng biến responsive
+                        fontSize={1.5}
                         position-y={0.5}
                         bevelEnabled
                         bevelSize={0.05}
@@ -70,8 +58,8 @@ export default function Experience({ setPage, isMobileView }) {
             <Billboard>
                 <Float speed={2} rotationIntensity={0.5} floatIntensity={0.2}>
                     <Text
-                        position={welcomePosition} // Sử dụng biến responsive
-                        fontSize={welcomeFontSize} // Sử dụng biến responsive
+                        position={[0, 2.5, 0]}
+                        fontSize={0.5}
                         color="white"
                         anchorX="center"
                         anchorY="middle"
@@ -81,17 +69,24 @@ export default function Experience({ setPage, isMobileView }) {
                 </Float>
             </Billboard>
 
+            {/* ========================================================== */}
+            {/* === THAY ĐỔI DUY NHẤT NẰM Ở ĐÂY === */}
+            {/* ========================================================== */}
             <CustomButton
-                position={buttonPosition} // Sử dụng biến responsive
+                position={[2.5, -0.5, 2]}
                 text="START"
-                onClick={() => setPage(3)} // Sửa thành điều hướng đến trang 3 (TeamPage)
+                // Trước đây, nó chuyển đến trang 3
+                // onClick={() => setPage(3)}
+                
+                // Bây giờ, hãy đổi thành số 2 để chuyển đến Hệ Mặt Trời
+                onClick={() => setPage(2)}
             />
 
-            <group position={clickMePosition}> {/* Sử dụng biến responsive */}
+            <group position={[3.5, -0.5, 2]}>
                 <Float speed={4} rotationIntensity={0.1} floatIntensity={0.2}>
                     <Billboard>
                         <Text
-                            position-y={0.5}
+                            position={[0, 0.8, 0]}
                             fontSize={0.3}
                             color="gold"
                             outlineColor="red"
