@@ -1,7 +1,9 @@
+// src/App.jsx
+
 import React, { useState, Suspense, useEffect, useLayoutEffect, useRef } from 'react';
-import { Canvas, useThree } from '@react-three/fiber'; // Thêm useThree vào import
+import { Canvas, useThree } from '@react-three/fiber';
 import { Joystick } from 'react-joystick-component';
-import * as THREE from 'three'; // Thêm import cho THREE để dùng Vector3
+import * as THREE from 'three';
 
 import Experience from './Experience';
 import { PageTwo } from './PageTwo';
@@ -25,32 +27,28 @@ function useWindowSize() {
 }
 
 // =============================================================
-// === PHẦN THÊM VÀO: COMPONENT QUẢN LÝ CAMERA ===
+// === COMPONENT QUẢN LÝ CAMERA ĐÃ ĐƯỢC CẬP NHẬT RESPONSIVE ===
 // =============================================================
-// Component này không render gì cả, nó chỉ có nhiệm vụ
-// lắng nghe sự thay đổi của 'page' và reset camera khi cần thiết.
-function CameraManager({ page }) {
+function CameraManager({ page, isMobileView }) {
   const { camera } = useThree();
 
   useEffect(() => {
-    // Khi chuyển đến Page 3 (TeamPage) hoặc quay lại Page 1 (Experience)
     if (page === 1 || page === 3) {
-      // 1. Reset camera về vị trí ban đầu
-      camera.position.set(0, 2, 8);
+      // Tính toán vị trí Z của camera dựa trên màn hình
+      const cameraZ = isMobileView ? 14 : 8; // Lùi camera ra xa (z=14) trên mobile
 
-      // 2. Đảm bảo camera nhìn vào trung tâm của cảnh (gốc tọa độ)
+      camera.position.set(0, 2, cameraZ);
       camera.lookAt(new THREE.Vector3(0, 0, 0));
-
-      // 3. Cập nhật ma trận chiếu của camera để thay đổi có hiệu lực
       camera.updateProjectionMatrix();
     }
-  }, [page, camera]); // Chạy lại effect này mỗi khi 'page' thay đổi
+  }, [page, camera, isMobileView]);
 
-  return null; // Không hiển thị gì trong scene
+  return null;
 }
 
-
-// Component UI được cập nhật
+// =============================================================
+// === UI Component (Không đổi) ===
+// =============================================================
 function UI({ page, activePlanet, isMobileView, onAccessPlanet }) {
   return (
     <>
@@ -63,7 +61,7 @@ function UI({ page, activePlanet, isMobileView, onAccessPlanet }) {
               A / D - Bay Ngang Trái / Phải<br />
               E / Q - Bay Lên / Xuống<br />
               Chuột - Nhìn Xung Quanh<br />
-              Nhấn Enter để khám phá hành tinh 
+              Nhấn Enter để khám phá hành tinh
             </div>
           )}
 
@@ -79,12 +77,18 @@ function UI({ page, activePlanet, isMobileView, onAccessPlanet }) {
 }
 
 
+// =============================================================
+// === App Component Chính ===
+// =============================================================
 function App() {
   const [page, setPage] = useState(1);
   const [activePlanet, setActivePlanet] = useState(null);
 
   const { width } = useWindowSize();
   const isMobileView = width <= 768;
+
+  // Xác định vị trí Z ban đầu của camera một cách linh động
+  const initialCameraZ = isMobileView ? 14 : 8;
 
   const joystickRef = useRef({ x: 0, y: 0, direction: null, distance: 0 });
 
@@ -126,11 +130,11 @@ function App() {
   return (
     <>
       <Canvas
-        camera={{ position: [0, 2, 8], fov: 45 }}
+        camera={{ position: [0, 2, initialCameraZ], fov: 45 }}
         dpr={[1, 1.5]}
       >
-        {/* SỬ DỤNG COMPONENT QUẢN LÝ CAMERA */}
-        <CameraManager page={page} />
+        {/* Truyền isMobileView vào CameraManager */}
+        <CameraManager page={page} isMobileView={isMobileView} />
 
         <Suspense fallback={null}>
           {page === 1 && <Experience setPage={setPage} isMobileView={isMobileView} />}
@@ -143,6 +147,7 @@ function App() {
         </EffectComposer>
       </Canvas>
 
+      {/* Joystick cho mobile ở Page 2 */}
       {isMobileView && page === 2 && (
         <div style={{
           position: 'absolute',
@@ -160,6 +165,7 @@ function App() {
         </div>
       )}
 
+      {/* Giao diện người dùng */}
       <UI
         page={page}
         activePlanet={activePlanet}
