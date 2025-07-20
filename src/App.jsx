@@ -62,7 +62,8 @@ function UI({ page, activePlanet, isMobileView, onAccessPlanet }) {
               W / S - Bay Tới / Lui<br />
               A / D - Bay Ngang Trái / Phải<br />
               E / Q - Bay Lên / Xuống<br />
-              Chuột - Nhìn Xung Quanh
+              Chuột - Nhìn Xung Quanh<br />
+              Nhấn Enter để khám phá hành tinh 
             </div>
           )}
 
@@ -105,7 +106,7 @@ function App() {
       if (activePlanet.name === 'Earth') {
         setPage(3);
       } else {
-        alert(`Hành Tinh Này Chưa Phát Hiện Sự Sống`);
+        alert(`Hành Tinh Này Chưa Phát Hiện Sự Sống! Hãy thử tới thăm Trái Đất`);
       }
     }
   };
