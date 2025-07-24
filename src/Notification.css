@@ -1,0 +1,122 @@
+/* src/Notification.css */
+
+.notification-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.7);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+    backdrop-filter: blur(5px);
+    animation: fadeIn 0.3s ease-out;
+}
+
+.notification-panel {
+    background: linear-gradient(145deg, #1e1e3f, #1a1a2e);
+    border: 1px solid #7a7aef;
+    border-radius: 12px;
+    box-shadow: 0 10px 30px rgba(122, 122, 239, 0.2);
+    padding: 24px;
+    width: 90%;
+    max-width: 450px;
+    text-align: center;
+    color: #e0e0ff;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    animation: slideIn 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    transform: translateZ(0);
+    /* Promotes the element to a new layer */
+}
+
+.notification-title {
+    font-size: 1.5rem;
+    margin-top: 0;
+    margin-bottom: 16px;
+    color: #ffc107;
+    text-shadow: 0 0 10px rgba(255, 193, 7, 0.5);
+    font-family: 'Exile-Regular', sans-serif;
+    /* Assuming you have this font */
+}
+
+.notification-message {
+    font-size: 1.1rem;
+    line-height: 1.6;
+    margin-bottom: 24px;
+}
+
+.notification-actions {
+    display: flex;
+    justify-content: center;
+    gap: 16px;
+}
+
+.notification-button,
+.notification-close-button {
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 12px 24px;
+    font-size: 1rem;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background-color 0.3s, transform 0.2s;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+}
+
+.notification-button.true {
+    background-color: #28a745;
+    /* Green */
+}
+
+.notification-button.true:hover {
+    background-color: #218838;
+}
+
+.notification-button.false {
+    background-color: #dc3545;
+    /* Red */
+}
+
+.notification-button.false:hover {
+    background-color: #c82333;
+}
+
+.notification-close-button {
+    background-color: #6a5acd;
+    box-shadow: 0 4px 15px rgba(106, 90, 205, 0.4);
+}
+
+.notification-close-button:hover {
+    background-color: #8a2be2;
+    transform: translateY(-2px);
+}
+
+.notification-close-button:active {
+    transform: translateY(0);
+}
+
+/* Keyframe animations */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateY(30px) scale(0.95);
+        opacity: 0;
+    }
+
+    to {
+        transform: translateY(0) scale(1);
+        opacity: 1;
+    }
+}

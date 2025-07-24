@@ -9,6 +9,7 @@ import Experience from './Experience';
 import { PageTwo } from './PageTwo';
 import { TeamPage } from './TeamPage';
 import { EffectComposer, Bloom } from '@react-three/postprocessing';
+import { Notification } from './Notification'; // Import component mới
 import './responsive.css';
 
 // =============================================================
@@ -83,6 +84,7 @@ function UI({ page, activePlanet, isMobileView, onAccessPlanet }) {
 function App() {
   const [page, setPage] = useState(1);
   const [activePlanet, setActivePlanet] = useState(null);
+  const [notification, setNotification] = useState(null);
 
   const { width } = useWindowSize();
   const isMobileView = width <= 768;
@@ -108,11 +110,34 @@ function App() {
   const accessPlanet = () => {
     if (activePlanet) {
       if (activePlanet.name === 'Earth') {
-        setPage(3);
-      } else {
-        alert(`Hành Tinh Này Chưa Phát Hiện Sự Sống! Hãy thử tới thăm Trái Đất`);
+        window.location.href = '/pages/HomePage.html';
+      } else if (activePlanet.question) {
+        // Hiển thị câu hỏi cho các hành tinh khác
+        setNotification({
+          type: 'question',
+          message: activePlanet.question.text,
+        });
       }
     }
+  };
+
+  const handleAnswer = (userAnswer) => {
+    const isCorrect = userAnswer === activePlanet.question.answer;
+    if (isCorrect) {
+      setNotification({
+        type: 'success',
+        message: 'Chính xác! Tín hiệu của sự sống được cho là phát ra từ một hành tinh xanh dương gần đó. Hãy thử tìm đến Trái Đất!',
+      });
+    } else {
+      setNotification({
+        type: 'error',
+        message: 'Không chính xác. Dữ liệu từ hành tinh này không cho thấy gì thú vị. Hãy tiếp tục tìm kiếm.',
+      });
+    }
+  };
+
+  const handleCloseNotification = () => {
+    setNotification(null);
   };
 
   useEffect(() => {
@@ -171,6 +196,13 @@ function App() {
         activePlanet={activePlanet}
         isMobileView={isMobileView}
         onAccessPlanet={accessPlanet}
+      />
+
+      {/* Hiển thị component thông báo đã được nâng cấp */}
+      <Notification
+        notification={notification}
+        onAnswer={handleAnswer}
+        onClose={handleCloseNotification}
       />
     </>
   );

@@ -72,7 +72,7 @@ export function TeamPage({ setPage, isMobileView }) {
                         outlineColor="white"
                         outlineWidth={0.02}
                     >
-                        Hãy vote cho chúng tôi
+                        Cảm Ơn Vì Đã Lắng Nghe
                     </Text>
                 </Float>
             </Billboard>
