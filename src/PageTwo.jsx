@@ -89,16 +89,51 @@ export function PageTwo({ setActivePlanet, joystickRef }) {
     const controlsRef = useRef();
     const keys = useRef({ forward: false, backward: false, left: false, right: false, up: false, down: false });
 
-    // Thêm câu hỏi và câu trả lời cho mỗi hành tinh
+    // Cập nhật các tình huống lừa đảo cho mỗi hành tinh
     const planetsData = [
-        { name: "Mercury", distance: 30, speed: 0.2, size: 1.0, color: '#a9a9a9', initialAngleOffset: 0, question: { text: "Sao Thủy có phải là hành tinh nóng nhất trong Hệ Mặt Trời không?", answer: false } },
-        { name: "Venus", distance: 45, speed: 0.12, size: 1.4, color: '#f0e68c', initialAngleOffset: 1.2, question: { text: "Bầu khí quyển của Sao Kim chủ yếu là khí Carbon Dioxide (CO2)?", answer: true } },
+        {
+            name: "Mercury", distance: 30, speed: 0.2, size: 1.0, color: '#a9a9a9', initialAngleOffset: 0, question: {
+                text: `Tình huống: Email từ ngân hàng báo "đăng nhập đáng ngờ", yêu cầu bạn nhấp link để xác minh. Hành động: Bạn vội vàng nhấp vào link và nhập mật khẩu. \n\n Hành động này đúng hay sai?`,
+                answer: false
+            }
+        },
+        {
+            name: "Venus", distance: 45, speed: 0.12, size: 1.4, color: '#f0e68c', initialAngleOffset: 1.2, question: {
+                text: `Tình huống: Email báo bạn đã trúng thưởng điện thoại từ Google, yêu cầu trả phí vận chuyển nhỏ để nhận giải. Hành động: Bạn thấy không đáng tin và xóa email. \n\n Hành động này đúng hay sai?`,
+                answer: true
+            }
+        },
         { name: "Earth", distance: 60, speed: 0.09, size: 1.5, color: '#2e86de', initialAngleOffset: 2.5 }, // Trái Đất không có câu hỏi
-        { name: "Mars", distance: 75, speed: 0.05, size: 1.2, color: '#c1440e', initialAngleOffset: 4.0, question: { text: "Sao Hỏa có 2 mặt trăng là Phobos và Deimos, đúng không?", answer: true } },
-        { name: "Jupiter", distance: 90, speed: 0.025, size: 2.5, color: '#d2b48c', initialAngleOffset: 0.5, question: { text: "Sao Mộc là hành tinh lớn nhất trong Hệ Mặt Trời của chúng ta?", answer: true } },
-        { name: "Saturn", distance: 105, speed: 0.015, size: 2.2, color: '#f4d0a9', ring: { innerRadius: 3.0, outerRadius: 4.5, color: '#cba135' }, initialAngleOffset: 3.14, question: { text: "Vành đai của Sao Thổ được tạo thành chủ yếu từ khí gas?", answer: false } },
-        { name: "Uranus", distance: 120, speed: 0.007, size: 1.8, color: '#ace5ee', ring: { innerRadius: 2.2, outerRadius: 3.0, color: '#96d9f0', rotation: [0.5, 1, 0] }, initialAngleOffset: 5.2, question: { text: "Sao Thiên Vương quay quanh trục với một độ nghiêng gần 98 độ?", answer: true } },
-        { name: "Neptune", distance: 135, speed: 0.004, size: 1.7, color: '#364ed1', initialAngleOffset: 1.8, question: { text: "Sao Hải Vương là hành tinh xa Mặt Trời nhất trong Hệ Mặt Trời?", answer: true } },
+        {
+            name: "Mars", distance: 75, speed: 0.05, size: 1.2, color: '#c1440e', initialAngleOffset: 4.0, question: {
+                text: `Tình huống: Email từ Google báo Drive sắp đầy. Khi di chuột qua nút "Nâng cấp", link hiện ra là một địa chỉ lạ. Hành động: Bạn báo cáo email lừa đảo rồi xóa. \n\n Hành động này đúng hay sai?`,
+                answer: true
+            }
+        },
+        {
+            name: "Jupiter", distance: 90, speed: 0.025, size: 2.5, color: '#d2b48c', initialAngleOffset: 0.5, question: {
+                text: `Tình huống: Email từ sếp (dùng địa chỉ gmail cá nhân) yêu cầu bạn mua gấp thẻ quà tặng và gửi mã. Hành động: Bạn nhắn tin cho sếp để xác nhận lại. \n\n Hành động này đúng hay sai?`,
+                answer: true
+            }
+        },
+        {
+            name: "Saturn", distance: 105, speed: 0.015, size: 2.2, color: '#f4d0a9', ring: { innerRadius: 3.0, outerRadius: 4.5, color: '#cba135' }, initialAngleOffset: 3.14, question: {
+                text: `Tình huống: Email từ dịch vụ xem phim báo lỗi thanh toán, yêu cầu cập nhật thông tin thẻ tín dụng qua một link. Hành động: Bạn nhấp ngay vào link và nhập thông tin. \n\n Hành động này đúng hay sai?`,
+                answer: false
+            }
+        },
+        {
+            name: "Uranus", distance: 120, speed: 0.007, size: 1.8, color: '#ace5ee', ring: { innerRadius: 2.2, outerRadius: 3.0, color: '#96d9f0', rotation: [0.5, 1, 0] }, initialAngleOffset: 5.2, question: {
+                text: `Tình huống: Email lạ không có nội dung, chỉ có file đính kèm "HoaDon.pdf". Hành động: Bạn tò mò và mở file ra xem. \n\n Hành động này đúng hay sai?`,
+                answer: false
+            }
+        },
+        {
+            name: "Neptune", distance: 135, speed: 0.004, size: 1.7, color: '#364ed1', initialAngleOffset: 1.8, question: {
+                text: `Tình huống: Email từ "Microsoft" báo mật khẩu sắp hết hạn, hối thúc bạn nhấp link để đổi. Hành động: Bạn bỏ qua email và tự vào web chính thức của Microsoft để kiểm tra. \n\n Hành động này đúng hay sai?`,
+                answer: true
+            }
+        },
     ];
 
     planetRefs.current = planetsData.map((_, i) => planetRefs.current[i] ?? React.createRef());

@@ -12,6 +12,19 @@ import { EffectComposer, Bloom } from '@react-three/postprocessing';
 import { Notification } from './Notification'; // Import component mới
 import './responsive.css';
 
+// Lớp phủ thông báo khi mất ngữ cảnh WebGL
+function WebGLRecoveryScreen() {
+  return (
+    <div className="webgl-recovery-screen">
+      <div className="recovery-message">
+        <h1>Mất Kết Nối Đồ Họa</h1>
+        <p>Hệ thống đang cố gắng phục hồi môi trường 3D. Vui lòng chờ trong giây lát...</p>
+      </div>
+    </div>
+  );
+}
+
+
 // =============================================================
 // === HOOK TÙY CHỈNH ĐỂ LẤY KÍCH THƯỚC CỬA SỔ TRÌNH DUYỆT ===
 // =============================================================
@@ -85,6 +98,8 @@ function App() {
   const [page, setPage] = useState(1);
   const [activePlanet, setActivePlanet] = useState(null);
   const [notification, setNotification] = useState(null);
+  const [questionPlanet, setQuestionPlanet] = useState(null); // State mới để "khóa" hành tinh đang hỏi
+  const [isLost, setIsLost] = useState(false); // State mới để theo dõi trạng thái mất ngữ cảnh
 
   const { width } = useWindowSize();
   const isMobileView = width <= 768;
@@ -112,7 +127,7 @@ function App() {
       if (activePlanet.name === 'Earth') {
         window.location.href = '/pages/HomePage.html';
       } else if (activePlanet.question) {
-        // Hiển thị câu hỏi cho các hành tinh khác
+        setQuestionPlanet(activePlanet); // Lưu lại hành tinh đang hỏi
         setNotification({
           type: 'question',
           message: activePlanet.question.text,
@@ -122,7 +137,9 @@ function App() {
   };
 
   const handleAnswer = (userAnswer) => {
-    const isCorrect = userAnswer === activePlanet.question.answer;
+    if (!questionPlanet) return; // Nếu không có hành tinh nào được hỏi, thoát
+
+    const isCorrect = userAnswer === questionPlanet.question.answer;
     if (isCorrect) {
       setNotification({
         type: 'success',
@@ -131,14 +148,41 @@ function App() {
     } else {
       setNotification({
         type: 'error',
-        message: 'Không chính xác. Dữ liệu từ hành tinh này không cho thấy gì thú vị. Hãy tiếp tục tìm kiếm.',
+        message: 'Không chính xác. Dữ liệu từ hành tinh này không cho thấy gì thú vị. Hãy tiếp tục khám phá.',
       });
     }
   };
 
   const handleCloseNotification = () => {
     setNotification(null);
+    setQuestionPlanet(null); // Xóa hành tinh đã lưu khi đóng thông báo
   };
+
+  // Hệ thống phục hồi WebGL
+  useEffect(() => {
+    const canvas = document.querySelector('canvas');
+    if (!canvas) return;
+
+    const onContextLost = (event) => {
+      event.preventDefault();
+      console.warn('Cảnh báo: Ngữ cảnh WebGL đã bị mất!');
+      setIsLost(true);
+    };
+
+    const onContextRestored = () => {
+      console.log('Thông tin: Ngữ cảnh WebGL đã được phục hồi.');
+      setIsLost(false);
+    };
+
+    canvas.addEventListener('webglcontextlost', onContextLost, false);
+    canvas.addEventListener('webglcontextrestored', onContextRestored, false);
+
+    return () => {
+      canvas.removeEventListener('webglcontextlost', onContextLost);
+      canvas.removeEventListener('webglcontextrestored', onContextRestored);
+    };
+  }, []);
+
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -154,23 +198,29 @@ function App() {
 
   return (
     <>
-      <Canvas
-        camera={{ position: [0, 2, initialCameraZ], fov: 45 }}
-        dpr={[1, 1.5]}
-      >
-        {/* Truyền isMobileView vào CameraManager */}
-        <CameraManager page={page} isMobileView={isMobileView} />
+      {isLost ? (
+        <WebGLRecoveryScreen />
+      ) : (
+        <Canvas
+          // Thêm key để buộc React tái tạo toàn bộ Canvas khi ngữ cảnh được khôi phục
+          key={isLost ? 'lost' : 'restored'}
+          camera={{ position: [0, 2, initialCameraZ], fov: 45 }}
+          dpr={[1, 1.5]}
+        >
+          {/* Truyền isMobileView vào CameraManager */}
+          <CameraManager page={page} isMobileView={isMobileView} />
 
-        <Suspense fallback={null}>
-          {page === 1 && <Experience setPage={setPage} isMobileView={isMobileView} />}
-          {page === 2 && <PageTwo setActivePlanet={setActivePlanet} setPage={setPage} joystickRef={joystickRef} />}
-          {page === 3 && <TeamPage setPage={setPage} isMobileView={isMobileView} />}
-        </Suspense>
+          <Suspense fallback={null}>
+            {page === 1 && <Experience setPage={setPage} isMobileView={isMobileView} />}
+            {page === 2 && <PageTwo setActivePlanet={setActivePlanet} setPage={setPage} joystickRef={joystickRef} />}
+            {page === 3 && <TeamPage setPage={setPage} isMobileView={isMobileView} />}
+          </Suspense>
 
-        <EffectComposer>
-          <Bloom mipmapBlur intensity={1.2} luminanceThreshold={1} />
-        </EffectComposer>
-      </Canvas>
+          <EffectComposer>
+            <Bloom mipmapBlur intensity={1.2} luminanceThreshold={1} />
+          </EffectComposer>
+        </Canvas>
+      )}
 
       {/* Joystick cho mobile ở Page 2 */}
       {isMobileView && page === 2 && (

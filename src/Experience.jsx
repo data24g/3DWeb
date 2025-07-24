@@ -6,19 +6,6 @@ import { CustomButton } from './CustomButton';
 export default function Experience({ setPage }) {
     const sceneRef = useRef();
 
-    // Xử lý sự kiện mất WebGL context
-    useEffect(() => {
-        const handleContextLost = (event) => {
-            event.preventDefault();
-            console.warn('WebGL context lost. Attempting to recover...');
-        };
-        const canvas = document.querySelector('canvas');
-        canvas.addEventListener('webglcontextlost', handleContextLost);
-        return () => {
-            canvas.removeEventListener('webglcontextlost', handleContextLost);
-        };
-    }, []);
-
     return (
         <group ref={sceneRef}>
             <OrbitControls

@@ -60,3 +60,35 @@
         width: auto;
     }
 }
+
+/* CSS cho màn hình phục hồi WebGL */
+.webgl-recovery-screen {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: #111;
+    color: white;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    font-family: 'Segoe UI', sans-serif;
+    z-index: 2000;
+}
+
+.recovery-message {
+    max-width: 600px;
+    padding: 20px;
+}
+
+.recovery-message h1 {
+    font-size: 2.5rem;
+    color: #ffc107;
+}
+
+.recovery-message p {
+    font-size: 1.2rem;
+    color: #ccc;
+}
