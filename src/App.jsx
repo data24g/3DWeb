@@ -96,6 +96,7 @@ function UI({ page, activePlanet, isMobileView, onAccessPlanet }) {
 // =============================================================
 function App() {
   const [page, setPage] = useState(1);
+  // const [page, setPage] = useState(3);
   const [activePlanet, setActivePlanet] = useState(null);
   const [notification, setNotification] = useState(null);
   const [questionPlanet, setQuestionPlanet] = useState(null); // State mới để "khóa" hành tinh đang hỏi

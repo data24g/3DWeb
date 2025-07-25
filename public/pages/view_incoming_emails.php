@@ -30,6 +30,22 @@ if (isset($_GET['check_new'])) {
     exit;
 }
 
+// Handle add email POST request
+if (isset($_POST['add_email'])) {
+    $from_email = mysqli_real_escape_string($conn, $_POST['from_email']);
+    $to_email = mysqli_real_escape_string($conn, $_POST['to_email']);
+    $title = mysqli_real_escape_string($conn, $_POST['title']);
+    $content = mysqli_real_escape_string($conn, $_POST['content']);
+    $received_time = date('Y-m-d H:i:s');
+    $sql = "INSERT INTO incoming_emails (from_email, to_email, title, content, received_time) VALUES ('$from_email', '$to_email', '$title', '$content', '$received_time')";
+    $insert_result = mysqli_query($conn, $sql);
+    if ($insert_result) {
+        $add_email_message = "<div class='status success'>✅ Thêm email thành công!</div>";
+    } else {
+        $add_email_message = "<div class='status error'>❌ Lỗi khi thêm email: ".mysqli_error($conn)."</div>";
+    }
+}
+
 // --- START OF PHP LOGIC SECTION ---
 
 // Check and add confidence column if it doesn't exist
@@ -1180,6 +1196,18 @@ if (isset($_GET['debug']) && $_GET['debug'] == '1') {
         echo "</div>";
     }
 
+    // Add email form and message (moved here)
+    if (isset($add_email_message)) echo $add_email_message;
+    echo "<div class='controls'>
+        <form method='POST' style='display: flex; flex-wrap: wrap; gap: 10px; align-items: center;'>
+            <input type='email' name='from_email' placeholder='Người gửi (from_email)' required style='padding:8px; border-radius:6px; border:1px solid #ccc; min-width:180px;'>
+            <input type='email' name='to_email' placeholder='Người nhận (to_email)' required style='padding:8px; border-radius:6px; border:1px solid #ccc; min-width:180px;'>
+            <input type='text' name='title' placeholder='Tiêu đề' required style='padding:8px; border-radius:6px; border:1px solid #ccc; min-width:180px;'>
+            <input type='text' name='content' placeholder='Nội dung' required style='padding:8px; border-radius:6px; border:1px solid #ccc; min-width:220px;'>
+            <button type='submit' name='add_email' class='btn btn-success'>Thêm email</button>
+        </form>
+    </div>";
+
     // Statistics Section
     $incomingCount = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as count FROM incoming_emails"))['count'];
     $processedCount = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as count FROM email_done"))['count'];
@@ -1249,48 +1277,48 @@ if (isset($_GET['debug']) && $_GET['debug'] == '1') {
     echo "</div>";
 
     // Section 1: Incoming Emails (Raw Data)
-    echo "<div class='section'>";
-    echo "<h2>📥 Email gốc (chưa xử lý)</h2>";
+    // echo "<div class='section'>";
+    // echo "<h2>📥 Email gốc (chưa xử lý)</h2>";
 
-    $sql = "SELECT * FROM incoming_emails ORDER BY received_time DESC LIMIT 100";
-    $result = mysqli_query($conn, $sql);
+    // $sql = "SELECT * FROM incoming_emails ORDER BY received_time DESC LIMIT 100";
+    // $result = mysqli_query($conn, $sql);
 
-    if ($result && mysqli_num_rows($result) > 0) {
-        echo "<div class='table-container'>";
-        echo "<table class='email-table'>";
-        echo "<thead>";
-        echo "<tr>";
-        echo "<th>ID</th>";
-        echo "<th>Thời gian</th>";
-        echo "<th>Người gửi</th>";
-        echo "<th>Người nhận</th>";
-        echo "<th>Tiêu đề</th>";
-        echo "<th>Nội dung</th>";
-        echo "</tr>";
-        echo "</thead>";
-        echo "<tbody>";
+    // if ($result && mysqli_num_rows($result) > 0) {
+    //     echo "<div class='table-container'>";
+    //     echo "<table class='email-table'>";
+    //     echo "<thead>";
+    //     echo "<tr>";
+    //     echo "<th>ID</th>";
+    //     echo "<th>Thời gian</th>";
+    //     echo "<th>Người gửi</th>";
+    //     echo "<th>Người nhận</th>";
+    //     echo "<th>Tiêu đề</th>";
+    //     echo "<th>Nội dung</th>";
+    //     echo "</tr>";
+    //     echo "</thead>";
+    //     echo "<tbody>";
         
-        while ($row = mysqli_fetch_assoc($result)) {
-            echo "<tr>";
-            echo "<td>".htmlspecialchars($row['id'])."</td>";
-            echo "<td class='timestamp'>".date('d/m/Y H:i:s', strtotime($row['received_time']))."</td>";
-            echo "<td class='email-sender'>".htmlspecialchars($row['from_email'])."</td>";
-            echo "<td class='email-sender'>".htmlspecialchars($row['to_email'])."</td>";
-            echo "<td class='email-title'>".htmlspecialchars($row['title'])."</td>";
-            echo "<td class='email-content'>".htmlspecialchars(substr($row['content'], 0, 100)).(strlen($row['content']) > 100 ? '...' : '')."</td>";
-            echo "</tr>";
-        }
+    //     while ($row = mysqli_fetch_assoc($result)) {
+    //         echo "<tr>";
+    //         echo "<td>".htmlspecialchars($row['id'])."</td>";
+    //         echo "<td class='timestamp'>".date('d/m/Y H:i:s', strtotime($row['received_time']))."</td>";
+    //         echo "<td class='email-sender'>".htmlspecialchars($row['from_email'])."</td>";
+    //         echo "<td class='email-sender'>".htmlspecialchars($row['to_email'])."</td>";
+    //         echo "<td class='email-title'>".htmlspecialchars($row['title'])."</td>";
+    //         echo "<td class='email-content'>".htmlspecialchars(substr($row['content'], 0, 100)).(strlen($row['content']) > 100 ? '...' : '')."</td>";
+    //         echo "</tr>";
+    //     }
         
-        echo "</tbody>";
-        echo "</table>";
-        echo "</div>";
-    } else {
-        echo "<div class='empty-message'>";
-        echo "📭 Không có email nào trong bảng incoming_emails<br>";
-        echo "Hãy chạy <a href='check_database.php'>check_database.php</a> để thêm dữ liệu mẫu";
-        echo "</div>";
-    }
-    echo "</div>";
+    //     echo "</tbody>";
+    //     echo "</table>";
+    //     echo "</div>";
+    // } else {
+    //     echo "<div class='empty-message'>";
+    //     echo "📭 Không có email nào trong bảng incoming_emails<br>";
+    //     echo "Hãy chạy <a href='check_database.php'>check_database.php</a> để thêm dữ liệu mẫu";
+    //     echo "</div>";
+    // }
+    // echo "</div>";
 
     // Section 2: Processed Emails (Classified Data)
     echo "<div class='section'>";
@@ -1385,7 +1413,7 @@ if (isset($_GET['debug']) && $_GET['debug'] == '1') {
         const currentIncomingCount = <?php echo $incomingCount; ?>;
         const currentProcessedCount = <?php echo $processedCount; ?>;
         
-        // Check for new emails every 30 seconds
+        // Check for new emails every 1 seconds
         setInterval(function() {
             const checkUrl = `?check_new=1&main_incoming=${currentIncomingCount}&main_processed=${currentProcessedCount}`;
             fetch(checkUrl, { method: 'GET' })
@@ -1406,7 +1434,7 @@ if (isset($_GET['debug']) && $_GET['debug'] == '1') {
                 .catch(error => {
                     console.log('Lỗi kiểm tra email mới:', error);
                 });
-        }, 30000); // Check every 30 seconds
+        }, 1000); // Check every 30 seconds
     }
     
     // Auto-refresh page every 2 minutes to show latest data
